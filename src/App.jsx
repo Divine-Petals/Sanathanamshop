@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ProductProvider } from './context/ProductContext'
 import { CartProvider } from './context/CartContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -8,6 +8,7 @@ import CartDrawer from './components/cart/CartDrawer'
 import LandingPage from './pages/LandingPage'
 import ProductsPage from './pages/ProductsPage'
 import AdminPage from './pages/AdminPage'
+import OrdersPage from './pages/OrdersPage'
 import LoginPage from './pages/LoginPage'
 
 function ProtectedRoute({ children }) {
@@ -21,7 +22,7 @@ export default function App() {
     <AuthProvider>
       <ProductProvider>
         <CartProvider>
-          <BrowserRouter>
+          <HashRouter>
             <div className="min-h-screen bg-cream flex flex-col">
               <Navbar />
               <CartDrawer />
@@ -38,11 +39,19 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
+                  <Route
+                    path="/admin/orders"
+                    element={
+                      <ProtectedRoute>
+                        <OrdersPage />
+                      </ProtectedRoute>
+                    }
+                  />
                 </Routes>
               </main>
               <Footer />
             </div>
-          </BrowserRouter>
+          </HashRouter>
         </CartProvider>
       </ProductProvider>
     </AuthProvider>
