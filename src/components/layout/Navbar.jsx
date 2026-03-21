@@ -20,7 +20,7 @@ export default function Navbar() {
           <span className="text-2xl" aria-hidden="true">🧼</span>
           <div>
             <p className="font-serif text-lg font-bold text-deep-green leading-none">Divine Petals</p>
-            <p className="text-[10px] text-earth-500 leading-none tracking-widest uppercase">Pure Indian Naturals</p>
+            <p className="text-[10px] text-earth-500 leading-none tracking-widest uppercase">Purity Enhanced</p>
           </div>
         </Link>
 
