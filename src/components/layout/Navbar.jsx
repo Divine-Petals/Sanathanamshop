@@ -17,10 +17,10 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2" aria-label="Divine Petals — Home">
-          <span className="text-2xl" aria-hidden="true">🧼</span>
+          <span className="text-2xl" aria-hidden="true"><img src="/assets/soaps/divinepetals.jpg" alt="Divine Petals logo" className="h-8 w-8 rounded-full object-cover" aria-hidden="true" /></span>
           <div>
             <p className="font-serif text-lg font-bold text-deep-green leading-none">Divine Petals</p>
-            <p className="text-[10px] text-earth-500 leading-none tracking-widest uppercase">Pure Indian Naturals</p>
+            <p className="text-[10px] text-earth-500 leading-none tracking-widest uppercase">Purity Enhanced</p>
           </div>
         </Link>
 

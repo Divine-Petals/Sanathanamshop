@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useProducts } from '../context/ProductContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -317,6 +317,22 @@ export default function AdminPage() {
             Logout
           </button>
         </div>
+      </div>
+
+      {/* Admin tabs */}
+      <div className="flex gap-1 mb-6 bg-earth-100 rounded-xl p-1 w-fit">
+        <Link
+          to="/admin/inventory"
+          className="px-4 py-2 rounded-lg text-sm font-semibold bg-white text-deep-green shadow-sm"
+        >
+          Inventory
+        </Link>
+        <Link
+          to="/admin/orders"
+          className="px-4 py-2 rounded-lg text-sm font-medium text-earth-600 hover:bg-white transition-colors"
+        >
+          Orders
+        </Link>
       </div>
 
       {/* Add / Edit form */}
