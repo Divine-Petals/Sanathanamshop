@@ -19,8 +19,8 @@ export default function HeroBanner() {
             <span className="text-saffron-400">India's Story</span>
           </h1>
           <p className="text-earth-200 text-base md:text-lg max-w-md mx-auto md:mx-0 mb-8 leading-relaxed">
-            Handcrafted soaps, botanical shampoos &amp; natural perfumes — made with
-            Ayurvedic herbs and ancient Indian recipes. Pure goodness starting at ₹179.
+            Handcrafted soaps, botanical shampoos &amp; natural perfumes — processed with
+            Ayurvedic herbs and ancient Indian Formulations . Pure goodness starting from ₹140.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
             <Link
