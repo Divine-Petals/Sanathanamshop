@@ -15,7 +15,27 @@
       rel="stylesheet"
     />
     <title>Divine Petals — Pure Indian Naturals</title>
-    <script type="module" crossorigin src="/Sanathanamshop/assets/index-Arr9XriA.js"></script>
+    <script>
+      // Decode the path encoded by 404.html and restore it via history.replaceState
+      // so React Router sees the correct URL before mounting.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search
+            .slice(1)
+            .split('&')
+            .map(function (s) {
+              return s.replace(/~and~/g, '&');
+            })
+            .join('?');
+          window.history.replaceState(
+            null,
+            null,
+            l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      })(window.location);
+    </script>
+    <script type="module" crossorigin src="/Sanathanamshop/assets/index-kPjs3x9c.js"></script>
     <link rel="stylesheet" crossorigin href="/Sanathanamshop/assets/index-DtyBISWL.css">
   </head>
   <body>
