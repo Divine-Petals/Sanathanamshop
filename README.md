@@ -1,2 +1,0 @@
-# Sanathanamshop
-Sanathanamshop
