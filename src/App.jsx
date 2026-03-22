@@ -21,7 +21,7 @@ export default function App() {
     <AuthProvider>
       <ProductProvider>
         <CartProvider>
-          <BrowserRouter>
+          <BrowserRouter basename="/Sanathanamshop">
             <div className="min-h-screen bg-cream flex flex-col">
               <Navbar />
               <CartDrawer />
