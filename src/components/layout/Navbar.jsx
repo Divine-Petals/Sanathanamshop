@@ -16,15 +16,15 @@ export default function Navbar() {
     <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-earth-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2" aria-label="Divine Petals — Home">
-          <span className="text-2xl" aria-hidden="true"><img src="/assets/soaps/divinepetals.jpg" alt="Divine Petals logo" className="h-8 w-8 rounded-full object-cover" aria-hidden="true" /></span>
-          <div>
-            <p className="font-serif text-lg font-bold text-deep-green leading-none">Divine Petals</p>
-            <p className="text-[10px] text-earth-500 leading-none tracking-widest uppercase">Purity Enhanced</p>
-          </div>
-        </Link>
+          <Link to="/" className="flex items-center gap-2" aria-label="Divine Petals — Home">
+            <img src="../Sanathanamshop/assets/soaps/divinepetals.jpg" alt="Divine Petals logo: circular emblem featuring natural soap product with warm, earthy tones" className="h-8 w-8 rounded-full object-cover" aria-hidden="true" />
+            <div>
+              <p className="font-serif text-lg font-bold text-deep-green leading-none">Divine Petals</p>
+              <p className="text-[10px] text-earth-500 leading-none tracking-widest uppercase">Purity Enhanced</p>
+            </div>
+          </Link>
 
-        {/* Desktop Nav */}
+          {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-6">
           {links.map((link) => (
             <Link

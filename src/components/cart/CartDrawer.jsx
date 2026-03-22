@@ -164,7 +164,6 @@ export default function CartDrawer() {
               <span className="text-earth-600">Subtotal</span>
               <span className="font-bold text-deep-green">₹{totalPrice.toFixed(2)}</span>
             </div>
-            <p className="text-[10px] text-earth-400 mb-3">GST Inclusive · Free shipping above ₹499</p>
             <button
               onClick={handleWhatsAppOrder}
               disabled={ordering}
