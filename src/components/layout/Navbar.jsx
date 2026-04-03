@@ -20,7 +20,7 @@ export default function Navbar() {
           <img src="../assets/soaps/divinepetals.jpeg" alt="Divine Petals logo: circular emblem featuring natural soap product with warm, earthy tones" className="h-8 w-8 rounded-full object-cover" aria-hidden="true" />
           <div>
             <p className="font-serif text-lg font-bold text-deep-green leading-none">Divine Petals</p>
-            <p className="text-[10px] text-earth-500 leading-none tracking-widest uppercase">Pure Indian Naturals</p>
+            <p className="text-[10px] text-earth-500 leading-none tracking-widest uppercase">Purity Enhanced</p>
           </div>
         </Link>
 
