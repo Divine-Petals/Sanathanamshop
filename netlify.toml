@@ -1,26 +1,10 @@
-# ---------------------------------------------------------------------------
-# Allowed origins — add/remove as needed
-# ---------------------------------------------------------------------------
-# CORS headers applied to every response from this Netlify site.
-# Adjust the Access-Control-Allow-Origin value to the exact domain(s) you
-# want to permit.  To allow multiple origins you need a Netlify Edge Function
-# or serverless function; for a single-origin SPA the value below is enough.
 [[headers]]
   for = "/*"
   [headers.values]
-    Access-Control-Allow-Origin  = "https://divinepetals.netlify.app"   # ← change to your production domain
+    Access-Control-Allow-Origin  = "https://sanathanamshop.in"
     Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, apikey, x-client-info"
+    Access-Control-Allow-Headers = "authorization, x-client-info, apikey, content-type"
     Access-Control-Max-Age       = "86400"
-
-# Preflight OPTIONS requests — return 204 with the same CORS headers
-[[redirects]]
-  from    = "/*"
-  to      = "/index.html"
-  status  = 200
-  force   = false
-  conditions = {Method = ["OPTIONS"]}
-  headers = {Access-Control-Allow-Origin = "https://divinepetals.netlify.app", Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS", Access-Control-Allow-Headers = "Content-Type, Authorization, apikey, x-client-info"}
 
 [[redirects]]
   from = "/*"
