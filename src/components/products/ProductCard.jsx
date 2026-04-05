@@ -64,7 +64,6 @@ export default function ProductCard({ product }) {
         <div className="flex items-center justify-between gap-2 mt-auto">
           <div>
             <p className="text-saffron-600 font-bold text-lg leading-none">₹{product.price_in_inr}</p>
-            <p className="text-earth-400 text-[10px] mt-0.5">GST Inclusive</p>
           </div>
           <button
             onClick={() => addToCart(product)}

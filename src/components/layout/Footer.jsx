@@ -36,7 +36,6 @@ export default function Footer() {
             <div>
               <p className="text-white font-semibold text-sm mb-3">Info</p>
               <div className="space-y-2">
-                <p className="text-xs text-earth-400">GST Inclusive Pricing</p>
                 <p className="text-xs text-earth-400">Ships across India</p>
                 <p className="text-xs text-earth-400">100% Natural Ingredients</p>
               </div>
