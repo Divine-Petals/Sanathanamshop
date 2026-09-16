@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/sanathanam.db*
+**/.DS_Store
+**/appsettings.*.local.json

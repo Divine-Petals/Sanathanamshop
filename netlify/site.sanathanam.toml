@@ -1,0 +1,10 @@
+# Reference config for the Sanathanam Netlify site.
+
+[build]
+  command = "npm run build:sanathanam"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  VITE_TENANT = "sanathanam"
+  # Set VITE_API_URL in the Netlify UI

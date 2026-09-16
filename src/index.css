@@ -16,6 +16,16 @@
     @apply bg-cream text-deep-green;
     font-family: 'Inter', system-ui, sans-serif;
   }
+
+  html[data-theme='divine-jewels'] body {
+    background: #faf7f2;
+    color: #1f1520;
+  }
+
+  html[data-theme='sanathanam'] body {
+    background: #fff8f0;
+    color: #5c1a0a;
+  }
 }
 
 @layer utilities {

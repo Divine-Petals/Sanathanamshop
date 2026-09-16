@@ -1,41 +1,59 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { api, getCustomerToken, setCustomerToken } from '../lib/api'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
-    // Restore session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setIsAuthenticated(!!session?.user)
+    const token = getCustomerToken()
+    if (!token) {
       setAuthLoading(false)
-    })
-
-    // Keep state in sync with Supabase auth events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setIsAuthenticated(!!session?.user)
-    })
-
-    return () => subscription.unsubscribe()
+      return
+    }
+    api
+      .me()
+      .then(setUser)
+      .catch(() => {
+        setCustomerToken(null)
+        setUser(null)
+      })
+      .finally(() => setAuthLoading(false))
   }, [])
 
-  const login = async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+  const sendOtp = (phone) => api.sendOtp(phone)
+
+  const verifyOtp = async (phone, code) => {
+    const data = await api.verifyOtp(phone, code)
+    setCustomerToken(data.token)
+    setUser(data.user)
+    return data
   }
 
-  const logout = async () => {
-    await supabase.auth.signOut()
+  const updateName = async (name) => {
+    const next = await api.updateMe(name)
+    setUser(next)
+  }
+
+  const logout = () => {
+    setCustomerToken(null)
+    setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, authLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        authLoading,
+        sendOtp,
+        verifyOtp,
+        updateName,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

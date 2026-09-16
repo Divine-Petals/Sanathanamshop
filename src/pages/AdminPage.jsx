@@ -1,12 +1,12 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useProducts } from '../context/ProductContext'
-import { useAuth } from '../context/AuthContext'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { useAdminInventory } from '../context/AdminInventoryContext'
+import { useAdminSite } from '../context/AdminSiteContext'
 
 const EMPTY_FORM = {
   name: '',
   price_in_inr: '',
   category: '',
+  subcategory: '',
   description: '',
   ingredients: '',
   bestseller: false,
@@ -17,7 +17,8 @@ function productToForm(product) {
   return {
     name: product.name ?? '',
     price_in_inr: product.price_in_inr ?? '',
-    category: product.category ?? 'Herbal',
+    category: product.category ?? '',
+    subcategory: product.subcategory ?? '',
     description: product.description ?? '',
     ingredients: Array.isArray(product.ingredients)
       ? product.ingredients.join(', ')
@@ -38,10 +39,36 @@ function formToProduct(form) {
   }
 }
 
-function ProductForm({ editingProduct, onClose, onSubmit, categories }) {
+function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTree }) {
   const isEditing = !!editingProduct
-  const [form, setForm] = useState(isEditing ? productToForm(editingProduct) : EMPTY_FORM)
+  const categoryOptions = categories.filter((c) => c !== 'All')
+  const [form, setForm] = useState(() => {
+    if (isEditing) return productToForm(editingProduct)
+    return {
+      ...EMPTY_FORM,
+      category: categoryOptions[0] ?? '',
+      subcategory: '',
+    }
+  })
   const fileRef = useRef(null)
+
+  const subcategoryOptions = useMemo(() => {
+    const node = (categoryTree ?? []).find((c) => c.name === form.category)
+    return node?.subcategories ?? []
+  }, [categoryTree, form.category])
+
+  useEffect(() => {
+    if (!isEditing && categoryOptions.length && !form.category) {
+      setForm((prev) => ({ ...prev, category: categoryOptions[0] }))
+    }
+  }, [categoryOptions.join('|'), isEditing])
+
+  useEffect(() => {
+    if (!subcategoryOptions.length) return
+    if (!form.subcategory || !subcategoryOptions.includes(form.subcategory)) {
+      setForm((prev) => ({ ...prev, subcategory: subcategoryOptions[0] }))
+    }
+  }, [form.category, subcategoryOptions.join('|')])
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
 
@@ -127,7 +154,7 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories }) {
             onChange={(e) => set('category', e.target.value)}
             className="w-full min-h-[44px] px-3 py-2 border border-earth-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green bg-white"
           >
-            {categories.filter((c) => c !== 'All').map((cat) => (
+            {categoryOptions.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>
@@ -135,8 +162,28 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories }) {
           </select>
         </div>
 
-        {/* Image upload */}
+        {/* Subcategory */}
         <div>
+          <label className="block text-xs font-semibold text-earth-600 mb-1" htmlFor="prod-subcategory">
+            Subcategory
+          </label>
+          <select
+            id="prod-subcategory"
+            value={form.subcategory}
+            onChange={(e) => set('subcategory', e.target.value)}
+            className="w-full min-h-[44px] px-3 py-2 border border-earth-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green bg-white"
+          >
+            {subcategoryOptions.length === 0 && <option value="">—</option>}
+            {subcategoryOptions.map((sub) => (
+              <option key={sub} value={sub}>
+                {sub}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Image upload */}
+        <div className="md:col-span-2">
           <label className="block text-xs font-semibold text-earth-600 mb-1">
             Product Image
           </label>
@@ -255,10 +302,14 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories }) {
 }
 
 export default function AdminPage() {
-  const { products, categories, addProduct, updateProduct, removeProduct, toggleAvailability } = useProducts()
-  const { logout } = useAuth()
-  const navigate = useNavigate()
-  const [formMode, setFormMode] = useState(null) // null | 'add' | product-id
+  const { products, categories, categoryTree, loading, error, addProduct, updateProduct, removeProduct, toggleAvailability } =
+    useAdminInventory()
+  const { site } = useAdminSite()
+  const [formMode, setFormMode] = useState(null)
+
+  useEffect(() => {
+    setFormMode(null)
+  }, [site.slug])
 
   const editingProduct =
     formMode && formMode !== 'add' ? products.find((p) => p.id === formMode) ?? null : null
@@ -292,40 +343,43 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 md:py-10">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-serif text-2xl md:text-3xl font-bold text-deep-green">Inventory</h1>
+          <h1 className="font-serif text-2xl md:text-3xl font-bold text-deep-green">
+            {site.name} — Inventory
+          </h1>
           <p className="text-earth-500 text-sm mt-1">
-            {products.length} product{products.length !== 1 ? 's' : ''} total
+            {loading ? 'Loading…' : `${products.length} product${products.length !== 1 ? 's' : ''} on this site`}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {!formMode && (
             <button
               onClick={openAdd}
-              className="min-h-[44px] bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold px-4 rounded-xl text-sm flex items-center gap-2 transition-colors"
+              className="min-h-[44px] bg-saffron-500 hover:bg-saffron-600 text-white font-semibold px-4 rounded-xl text-sm flex items-center gap-2 transition-colors"
             >
               <span className="text-lg leading-none font-light">+</span>
               Add Product
             </button>
           )}
-          <button
-            onClick={() => { logout(); navigate('/admin/login') }}
-            className="min-h-[44px] border border-earth-200 text-earth-600 hover:bg-earth-50 font-semibold px-4 rounded-xl text-sm transition-colors"
-          >
-            Logout
-          </button>
         </div>
       </div>
 
-      {/* Add / Edit form */}
+      {error && (
+        <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>
+      )}
+
+      {loading ? (
+        <p className="text-center py-16 text-earth-400 text-sm">Loading inventory…</p>
+      ) : (
+        <>
       {formMode && (
         <ProductForm
           editingProduct={editingProduct}
           onClose={closeForm}
           onSubmit={handleSubmit}
           categories={categories}
+          categoryTree={categoryTree}
         />
       )}
 
@@ -341,6 +395,7 @@ export default function AdminPage() {
               <tr>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Product</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Category</th>
+                <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Subcategory</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Price (₹)</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Ingredients</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Status</th>
@@ -372,6 +427,7 @@ export default function AdminPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-earth-600 whitespace-nowrap">{product.category}</td>
+                  <td className="px-4 py-3 text-earth-600 whitespace-nowrap">{product.subcategory || '—'}</td>
                   <td className="px-4 py-3 font-semibold text-deep-green whitespace-nowrap">₹{product.price_in_inr}</td>
                   <td className="px-4 py-3 max-w-[200px]">
                     <div className="flex flex-wrap gap-1">
@@ -453,7 +509,10 @@ export default function AdminPage() {
                 <p className="font-serif font-semibold text-deep-green text-sm leading-tight truncate">
                   {product.name}
                 </p>
-                <p className="text-earth-500 text-xs">{product.category}</p>
+                <p className="text-earth-500 text-xs">
+                  {product.category}
+                  {product.subcategory ? ` · ${product.subcategory}` : ''}
+                </p>
                 <p className="text-saffron-600 font-bold text-sm mt-0.5">₹{product.price_in_inr}</p>
                 {product.bestseller && (
                   <p className="text-[10px] text-saffron-500 font-semibold mt-0.5">★ Bestseller</p>
@@ -510,6 +569,8 @@ export default function AdminPage() {
           </div>
         ))}
       </div>
+        </>
+      )}
     </div>
   )
 }

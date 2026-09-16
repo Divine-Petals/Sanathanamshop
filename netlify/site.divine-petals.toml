@@ -1,0 +1,12 @@
+# Reference config for the Divine Petals Netlify site.
+# Netlify only auto-reads /netlify.toml at the repo root.
+# Use these values in Site settings → Build & deploy.
+
+[build]
+  command = "npm run build:divine-petals"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  VITE_TENANT = "divine-petals"
+  # Set VITE_API_URL in the Netlify UI (do not commit production URLs with secrets)

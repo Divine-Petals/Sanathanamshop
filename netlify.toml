@@ -1,19 +1,42 @@
+# Shared Netlify config for all three storefront sites.
+# Create THREE Netlify sites from this repo; each site overrides the build
+# command and environment variables (see netlify/README.md).
+
 [build]
-  command = "npm run build"
+  command = "npm run build:divine-petals"
   publish = "dist"
+  functions = "netlify/functions"
 
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Access-Control-Allow-Origin  = "https://sanathanamshop.in"
-    Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "authorization, x-client-info, apikey, content-type"
-    Access-Control-Max-Age       = "86400"
+[build.environment]
+  NODE_VERSION = "20"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_API_URL"
 
+# ── Per-site build commands (set in Netlify UI → Site settings → Build) ──
+# Divine Petals:  npm run build:divine-petals
+# Divine Jewels:  npm run build:divine-jewels
+# Sanathanam:     npm run build:sanathanam
+
+# SPA fallback — React Router client routes
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-[build.environment]
-  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_WHATSAPPHONES"
+# Security + cache headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

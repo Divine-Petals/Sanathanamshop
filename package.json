@@ -5,8 +5,14 @@
   "type": "module",
   "homepage": "https://sanathanamshop.in",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --port 5173",
+    "dev:divine-petals": "vite --mode divine-petals --port 5173",
+    "dev:divine-jewels": "vite --mode divine-jewels --port 5174",
+    "dev:sanathanam": "vite --mode sanathanam --port 5175",
+    "build": "vite build --mode divine-petals",
+    "build:divine-petals": "vite build --mode divine-petals",
+    "build:divine-jewels": "vite build --mode divine-jewels",
+    "build:sanathanam": "vite build --mode sanathanam",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"

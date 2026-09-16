@@ -1,7 +1,19 @@
-function FilterContent({ categories, selectedCategory, onSelectCategory, priceRange, onPriceChange, onClose }) {
+function FilterContent({
+  categories,
+  selectedCategory,
+  onSelectCategory,
+  subcategories,
+  selectedSubcategory,
+  onSelectSubcategory,
+  priceRange,
+  onPriceChange,
+  onClose,
+  priceMax = 400,
+  priceMin = 0,
+}) {
+  const step = priceMax > 2000 ? 100 : 10
   return (
     <div className="space-y-6">
-      {/* Category filter */}
       <div>
         <h3 className="font-semibold text-deep-green text-sm mb-3">Category</h3>
         <div className="space-y-2">
@@ -10,7 +22,7 @@ function FilterContent({ categories, selectedCategory, onSelectCategory, priceRa
               key={cat}
               onClick={() => {
                 onSelectCategory(cat)
-                if (onClose) onClose()
+                // Keep drawer open so subcategory can be chosen next.
               }}
               className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium min-h-[44px] transition-colors ${
                 selectedCategory === cat
@@ -24,24 +36,47 @@ function FilterContent({ categories, selectedCategory, onSelectCategory, priceRa
         </div>
       </div>
 
-      {/* Price filter */}
+      {subcategories.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-deep-green text-sm mb-3">Subcategory</h3>
+          <div className="space-y-2">
+            {['All', ...subcategories].map((sub) => (
+              <button
+                key={sub}
+                onClick={() => {
+                  onSelectSubcategory(sub)
+                  if (onClose) onClose()
+                }}
+                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium min-h-[44px] transition-colors ${
+                  selectedSubcategory === sub
+                    ? 'bg-saffron-500 text-white'
+                    : 'bg-earth-50 text-earth-700 hover:bg-earth-100'
+                }`}
+              >
+                {sub}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 className="font-semibold text-deep-green text-sm mb-1">
           Max Price: <span className="text-saffron-600">₹{priceRange}</span>
         </h3>
         <input
           type="range"
-          min={150}
-          max={400}
-          step={10}
-          value={priceRange}
+          min={priceMin}
+          max={priceMax}
+          step={step}
+          value={Math.min(priceRange, priceMax)}
           onChange={(e) => onPriceChange(Number(e.target.value))}
           className="w-full mt-2 accent-saffron-500"
           aria-label="Maximum price filter"
         />
         <div className="flex justify-between text-xs text-earth-400 mt-1">
-          <span>₹150</span>
-          <span>₹400</span>
+          <span>₹{priceMin}</span>
+          <span>₹{priceMax}</span>
         </div>
       </div>
     </div>
@@ -54,26 +89,34 @@ export default function FilterDrawer({
   categories,
   selectedCategory,
   onSelectCategory,
+  subcategories = [],
+  selectedSubcategory = 'All',
+  onSelectSubcategory,
   priceRange,
   onPriceChange,
+  priceMax = 400,
 }) {
+  const contentProps = {
+    categories,
+    selectedCategory,
+    onSelectCategory,
+    subcategories,
+    selectedSubcategory,
+    onSelectSubcategory,
+    priceRange,
+    onPriceChange,
+    priceMax,
+  }
+
   return (
     <>
-      {/* Desktop sidebar — always visible on md+ */}
       <aside className="hidden md:block w-52 flex-shrink-0">
         <div className="bg-white rounded-2xl border border-earth-100 p-4 sticky top-20">
           <h2 className="font-serif text-lg font-bold text-deep-green mb-4">Filters</h2>
-          <FilterContent
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onSelectCategory={onSelectCategory}
-            priceRange={priceRange}
-            onPriceChange={onPriceChange}
-          />
+          <FilterContent {...contentProps} />
         </div>
       </aside>
 
-      {/* Mobile bottom drawer */}
       {isOpen && (
         <>
           <div
@@ -99,14 +142,7 @@ export default function FilterDrawer({
                 </svg>
               </button>
             </div>
-            <FilterContent
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onSelectCategory={onSelectCategory}
-              priceRange={priceRange}
-              onPriceChange={onPriceChange}
-              onClose={onClose}
-            />
+            <FilterContent {...contentProps} onClose={onClose} />
           </div>
         </>
       )}
