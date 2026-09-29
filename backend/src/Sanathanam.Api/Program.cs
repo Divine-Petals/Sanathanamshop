@@ -6,6 +6,7 @@ using Sanathanam.Api.Auth;
 using Sanathanam.Api.Data;
 using Sanathanam.Api.Messaging;
 using Sanathanam.Api.Services;
+using Sanathanam.Api.SupabaseClient;
 using Sanathanam.Api.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,7 +16,15 @@ var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrWhiteSpace(port))
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-ValidateProductionConfig(builder);
+try
+{
+    ValidateProductionConfig(builder);
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine($"FATAL startup config: {ex.Message}");
+    throw;
+}
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower);
@@ -28,8 +37,11 @@ builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<MessagingService>();
 builder.Services.AddHttpClient();
 
+// Official Supabase C# client (SUPABASE_URL + SUPABASE_KEY / SECRET_KEY).
+await builder.Services.AddSupabaseClientAsync(builder.Configuration, builder.Environment);
+
 var msg91Key = builder.Configuration["Msg91:AuthKey"];
-if (string.IsNullOrWhiteSpace(msg91Key))
+if (string.IsNullOrWhiteSpace(msg91Key) || msg91Key.StartsWith("REPLACE_", StringComparison.OrdinalIgnoreCase))
 {
     if (!builder.Environment.IsDevelopment())
         Console.Error.WriteLine("WARNING: Msg91:AuthKey is empty — OTP/WhatsApp use Dev loggers. Configure MSG91 before real customers.");
@@ -42,11 +54,13 @@ else
     builder.Services.AddHttpClient<IWhatsAppSender, Msg91WhatsAppSender>();
 }
 
+var usePostgres = IsTruthy(builder.Configuration["UsePostgres"]);
+var postgres = NormalizePostgresConnection(builder.Configuration.GetConnectionString("Postgres"));
+
 builder.Services.AddDbContext<AppDbContext>(opt =>
 {
-    var postgres = builder.Configuration.GetConnectionString("Postgres");
     var sqlite = builder.Configuration.GetConnectionString("Sqlite") ?? "Data Source=sanathanam.db";
-    if (builder.Configuration.GetValue<bool>("UsePostgres") && !string.IsNullOrWhiteSpace(postgres))
+    if (usePostgres && !string.IsNullOrWhiteSpace(postgres))
         opt.UseNpgsql(postgres);
     else
         opt.UseSqlite(sqlite);
@@ -83,15 +97,62 @@ builder.Services.AddCors(opt =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+Console.WriteLine($"Starting Sanathanam.Api ({app.Environment.EnvironmentName}), UsePostgres={usePostgres}, PORT={port ?? "unset"}");
+
+var databaseReady = false;
+var efReady = false;
+var supabaseShop = app.Services.GetService<SupabaseShopStore>();
+if (supabaseShop is not null)
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    // Local SQLite only: recreate when schema changes.
-    if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("UsePostgres"))
-        await db.Database.EnsureDeletedAsync();
-    await db.Database.EnsureCreatedAsync();
-    await DbSeeder.SeedAsync(db, builder.Configuration, app.Environment);
+    try
+    {
+        await supabaseShop.EnsureSeededAsync(builder.Configuration);
+        databaseReady = true;
+        Console.WriteLine("Supabase shop store ready (products/orders/admin).");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"ERROR Supabase shop startup: {ex.Message}");
+    }
 }
+
+try
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        if (supabaseShop is not null)
+        {
+            // schema.sql owns tables; do not EnsureCreated (no-ops once any tables exist,
+            // leaving users/OTP missing, or colliding with PostgREST snake_case).
+            if (!await db.Database.CanConnectAsync())
+                throw new InvalidOperationException("Cannot connect to Postgres (ConnectionStrings__Postgres).");
+            _ = await db.Users.CountAsync(); // fails if users table missing from schema.sql
+            efReady = true;
+            Console.WriteLine("EF Core ready (users/OTP/addresses); catalog via Supabase.");
+        }
+        else
+        {
+            if (app.Environment.IsDevelopment() && !usePostgres)
+                await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+            await DbSeeder.SeedAsync(db, builder.Configuration, app.Environment);
+            efReady = true;
+            databaseReady = true;
+            Console.WriteLine("Database ready (EF Core).");
+        }
+    }
+}
+catch (Exception ex)
+{
+    efReady = false;
+    // Still bind to PORT so Cloud Run becomes Ready; fix ConnectionStrings__Postgres / schema.sql and redeploy.
+    Console.Error.WriteLine($"ERROR database startup (API will start unhealthy): {ex.Message}");
+}
+
+// Full readiness: shop path needs Supabase seed; login/checkout also need EF user tables.
+if (supabaseShop is not null)
+    databaseReady = databaseReady && efReady;
 
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
@@ -103,7 +164,21 @@ if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(port))
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<TenantMiddleware>();
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/health", (IServiceProvider sp) =>
+{
+    var supabaseConfigured = sp.GetService<Supabase.Client>() is not null;
+    if (!databaseReady)
+    {
+        return Results.Json(new
+        {
+            status = "degraded",
+            error = "database_unavailable",
+            supabase = supabaseConfigured
+        }, statusCode: 503);
+    }
+
+    return Results.Ok(new { status = "ok", supabase = supabaseConfigured });
+});
 app.MapControllers();
 app.Run();
 
@@ -112,12 +187,28 @@ static void ValidateProductionConfig(WebApplicationBuilder builder)
     if (builder.Environment.IsDevelopment())
         return;
 
-    if (!builder.Configuration.GetValue<bool>("UsePostgres"))
-        throw new InvalidOperationException("Production requires UsePostgres=true (Supabase/Postgres).");
+    if (!IsTruthy(builder.Configuration["UsePostgres"]))
+        throw new InvalidOperationException(
+            "Production requires UsePostgres=true (got '" + (builder.Configuration["UsePostgres"] ?? "") + "'). Use true/1/yes.");
 
     var postgres = builder.Configuration.GetConnectionString("Postgres");
     if (string.IsNullOrWhiteSpace(postgres))
         throw new InvalidOperationException("Production requires ConnectionStrings:Postgres.");
+
+    var supabaseUrl = FirstNonEmpty(
+        builder.Configuration["SUPABASE_URL"],
+        builder.Configuration["Supabase:Url"],
+        Environment.GetEnvironmentVariable("SUPABASE_URL"));
+    var supabaseKey = FirstNonEmpty(
+        builder.Configuration["SUPABASE_KEY"],
+        builder.Configuration["SUPABASE_SECRET_KEY"],
+        builder.Configuration["Supabase:Key"],
+        Environment.GetEnvironmentVariable("SUPABASE_KEY"),
+        Environment.GetEnvironmentVariable("SUPABASE_SECRET_KEY"));
+    if (string.IsNullOrWhiteSpace(supabaseUrl) || string.IsNullOrWhiteSpace(supabaseKey))
+        Console.Error.WriteLine(
+            "WARNING: SUPABASE_URL / SUPABASE_KEY missing — catalog falls back to EF. " +
+            "Set both (service_role key) and run supabase/schema.sql for PostgREST.");
 
     var jwtKey = builder.Configuration["Jwt:Key"] ?? "";
     var weakKeys = new[]
@@ -125,6 +216,59 @@ static void ValidateProductionConfig(WebApplicationBuilder builder)
         "change-this-to-a-long-random-secret-key-32+",
         "dev-only-sanathanam-jwt-signing-key-32chars"
     };
-    if (jwtKey.Length < 32 || weakKeys.Any(w => string.Equals(w, jwtKey, StringComparison.Ordinal)))
-        throw new InvalidOperationException("Production requires a strong Jwt:Key (32+ random characters).");
+    if (jwtKey.Length < 32
+        || weakKeys.Any(w => string.Equals(w, jwtKey, StringComparison.Ordinal))
+        || jwtKey.StartsWith("REPLACE_", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("Production requires a strong Jwt:Key (32+ random characters). Set env Jwt__Key.");
+}
+
+static string? FirstNonEmpty(params string?[] values) =>
+    values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+static bool IsTruthy(string? value)
+{
+    if (string.IsNullOrWhiteSpace(value)) return false;
+    return value.Trim() is "1" or "true" or "True" or "TRUE" or "yes" or "Yes" or "YES" or "y" or "Y";
+}
+
+/// Accepts Npgsql key=value or postgresql:// URI; converts URI → key=value (Npgsql builder is not URI-safe).
+static string? NormalizePostgresConnection(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw)) return raw;
+    var s = raw.Trim().Trim('"');
+
+    if (s.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+        || s.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        if (!Uri.TryCreate(s, UriKind.Absolute, out var uri))
+            throw new InvalidOperationException("ConnectionStrings:Postgres URI is invalid.");
+
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var user = Uri.UnescapeDataString(userInfo.ElementAtOrDefault(0) ?? "postgres");
+        var pass = Uri.UnescapeDataString(userInfo.ElementAtOrDefault(1) ?? "");
+        var database = uri.AbsolutePath.Trim('/');
+        if (string.IsNullOrWhiteSpace(database)) database = "postgres";
+        var port = uri.IsDefaultPort ? 5432 : uri.Port;
+
+        // Always require SSL for hosted Postgres (Supabase).
+        // Disable GSS — aspnet slim images lack libgssapi_krb5.so.2.
+        return $"Host={uri.Host};Port={port};Database={database};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;GSS Encryption Mode=Disable";
+    }
+
+    if ((s.Contains("supabase.co", StringComparison.OrdinalIgnoreCase)
+         || s.Contains("supabase.com", StringComparison.OrdinalIgnoreCase))
+        && !s.Contains("SSL Mode=", StringComparison.OrdinalIgnoreCase)
+        && !s.Contains("Ssl Mode=", StringComparison.OrdinalIgnoreCase))
+    {
+        s = s.TrimEnd(';') + ";SSL Mode=Require;Trust Server Certificate=true";
+    }
+
+    if ((s.Contains("supabase.co", StringComparison.OrdinalIgnoreCase)
+         || s.Contains("supabase.com", StringComparison.OrdinalIgnoreCase))
+        && !s.Contains("GSS Encryption Mode=", StringComparison.OrdinalIgnoreCase))
+    {
+        s = s.TrimEnd(';') + ";GSS Encryption Mode=Disable";
+    }
+
+    return s;
 }

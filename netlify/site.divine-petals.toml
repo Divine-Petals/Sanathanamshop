@@ -9,4 +9,7 @@
 [build.environment]
   NODE_VERSION = "20"
   VITE_TENANT = "divine-petals"
-  # Set VITE_API_URL in the Netlify UI (do not commit production URLs with secrets)
+  VITE_API_URL = "https://sanathanam-api-607793476151.asia-south1.run.app"
+  VITE_URL_DIVINE_PETALS = "https://www.divinepetals.in"
+  VITE_URL_DIVINE_JEWELS = "https://jewels.sanathanamshop.in"
+  VITE_URL_SANATHANAM = "https://www.sanathanamshop.in"

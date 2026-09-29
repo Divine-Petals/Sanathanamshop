@@ -1,14 +1,20 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sanathanam.Api.Data;
+using Sanathanam.Api.SupabaseClient;
 using Sanathanam.Api.Tenancy;
 
 namespace Sanathanam.Api.Controllers;
 
 [ApiController]
 [Route("api")]
-public class StorefrontController(AppDbContext db, TenantContext tenantContext) : ControllerBase
+public class StorefrontController(
+    AppDbContext db,
+    TenantContext tenantContext,
+    IEnumerable<SupabaseShopStore> shops) : ControllerBase
 {
+    private readonly SupabaseShopStore? shop = shops.FirstOrDefault();
+
     [HttpGet("storefront")]
     public IActionResult Get()
     {
@@ -37,6 +43,10 @@ public class StorefrontController(AppDbContext db, TenantContext tenantContext) 
     {
         var t = tenantContext.Current;
         if (t is null) return NotFound(new { message = "Unknown store." });
+
+        if (shop is not null)
+            return Ok(await shop.ListProductsForTenantAsync(t.Id));
+
         var products = await db.Products
             .Where(p => p.ProductTenants.Any(pt => pt.TenantId == t.Id))
             .OrderBy(p => p.Name)
@@ -62,6 +72,10 @@ public class StorefrontController(AppDbContext db, TenantContext tenantContext) 
     {
         var t = tenantContext.Current;
         if (t is null) return NotFound(new { message = "Unknown store." });
+
+        if (shop is not null)
+            return Ok(await shop.ListCategoriesForTenantAsync(t.Id));
+
         var names = await db.Categories
             .Where(c => c.TenantId == t.Id)
             .OrderBy(c => c.Name)

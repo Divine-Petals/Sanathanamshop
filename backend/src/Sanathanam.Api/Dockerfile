@@ -1,4 +1,5 @@
-# Multi-stage build for Cloud Run (.NET 10)
+# Multi-stage build for Cloud Run / Koyeb / Render (.NET 10)
+# Cloud Run needs amd64 — build with: docker build --platform=linux/amd64 ...
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["Sanathanam.Api.csproj", "./"]

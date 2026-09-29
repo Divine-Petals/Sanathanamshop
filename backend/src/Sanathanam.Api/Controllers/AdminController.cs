@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Sanathanam.Api.Auth;
 using Sanathanam.Api.Data;
 using Sanathanam.Api.Domain;
+using Sanathanam.Api.SupabaseClient;
 using Sanathanam.Api.Tenancy;
 
 namespace Sanathanam.Api.Controllers;
@@ -23,14 +24,26 @@ public record StatusPatch(string Status);
 
 [ApiController]
 [Route("api/admin")]
-public class AdminController(AppDbContext db, TokenService tokens, TenantContext tenantContext) : ControllerBase
+public class AdminController(
+    AppDbContext db,
+    TokenService tokens,
+    TenantContext tenantContext,
+    IEnumerable<SupabaseShopStore> shops) : ControllerBase
 {
+    private readonly SupabaseShopStore? shop = shops.FirstOrDefault();
+    private bool UseSupabase => shop is not null;
+
     [HttpPost("auth/login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] AdminLoginRequest body)
     {
         var email = body.Email.Trim().ToLowerInvariant();
-        var admin = await db.Admins.FirstOrDefaultAsync(a => a.Email.ToLower() == email);
+        AdminUser? admin;
+        if (UseSupabase)
+            admin = await shop!.FindAdminByEmailAsync(email);
+        else
+            admin = await db.Admins.FirstOrDefaultAsync(a => a.Email.ToLower() == email);
+
         if (admin is null || !BCrypt.Net.BCrypt.Verify(body.Password, admin.PasswordHash))
             return Unauthorized(new { message = "Invalid email or password." });
         var token = tokens.CreateAccessToken(admin.Id, admin.Email, "admin");
@@ -42,6 +55,12 @@ public class AdminController(AppDbContext db, TokenService tokens, TenantContext
     public async Task<IActionResult> Create([FromBody] ProductWrite body)
     {
         var tenant = tenantContext.Current ?? throw new InvalidOperationException("Unknown store.");
+        if (UseSupabase)
+        {
+            var mapped = await shop!.CreateProductAsync(tenant.Id, ToDto(body));
+            return Ok(mapped);
+        }
+
         var product = new Product
         {
             Id = Guid.NewGuid(),
@@ -65,6 +84,12 @@ public class AdminController(AppDbContext db, TokenService tokens, TenantContext
     [HttpPut("products/{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] ProductWrite body)
     {
+        if (UseSupabase)
+        {
+            var mapped = await shop!.UpdateProductAsync(id, ToDto(body));
+            return mapped is null ? NotFound() : Ok(mapped);
+        }
+
         var product = await db.Products.FindAsync(id);
         if (product is null) return NotFound();
         product.Name = body.Name;
@@ -84,6 +109,9 @@ public class AdminController(AppDbContext db, TokenService tokens, TenantContext
     [HttpDelete("products/{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
+        if (UseSupabase)
+            return await shop!.DeleteProductAsync(id) ? NoContent() : NotFound();
+
         var product = await db.Products.FindAsync(id);
         if (product is null) return NotFound();
         db.ProductTenants.RemoveRange(db.ProductTenants.Where(pt => pt.ProductId == id));
@@ -96,6 +124,12 @@ public class AdminController(AppDbContext db, TokenService tokens, TenantContext
     [HttpPatch("products/{id:guid}/availability")]
     public async Task<IActionResult> Toggle(Guid id)
     {
+        if (UseSupabase)
+        {
+            var mapped = await shop!.ToggleProductAsync(id);
+            return mapped is null ? NotFound() : Ok(mapped);
+        }
+
         var product = await db.Products.FindAsync(id);
         if (product is null) return NotFound();
         product.Available = !product.Available;
@@ -108,6 +142,9 @@ public class AdminController(AppDbContext db, TokenService tokens, TenantContext
     public async Task<IActionResult> Orders()
     {
         var tenant = tenantContext.Current;
+        if (UseSupabase)
+            return Ok(await shop!.ListOrdersAsync(tenant?.Id));
+
         var q = db.Orders.Include(o => o.Items).AsQueryable();
         if (tenant is not null)
             q = q.Where(o => o.TenantId == tenant.Id);
@@ -128,14 +165,25 @@ public class AdminController(AppDbContext db, TokenService tokens, TenantContext
     [HttpPatch("orders/{id:guid}")]
     public async Task<IActionResult> PatchStatus(Guid id, [FromBody] StatusPatch body)
     {
-        var order = await db.Orders.FindAsync(id);
-        if (order is null) return NotFound();
         if (!Enum.TryParse<OrderStatus>(body.Status, true, out var status))
             return BadRequest(new { message = "Invalid status." });
+
+        if (UseSupabase)
+        {
+            var mapped = await shop!.PatchOrderStatusAsync(id, status);
+            return mapped is null ? NotFound() : Ok(mapped);
+        }
+
+        var order = await db.Orders.FindAsync(id);
+        if (order is null) return NotFound();
         order.Status = status;
         await db.SaveChangesAsync();
         return Ok(new { order.Id, status = order.Status.ToString().ToLowerInvariant() });
     }
+
+    private static ProductWriteDto ToDto(ProductWrite body) => new(
+        body.Name, body.PriceInInr, body.Category, body.Subcategory, body.Description,
+        body.Ingredients, body.Bestseller, body.Available, body.ImageUrl);
 
     private static object Map(Product p) => new
     {

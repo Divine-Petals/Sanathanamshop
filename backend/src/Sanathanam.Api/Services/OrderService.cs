@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sanathanam.Api.Data;
 using Sanathanam.Api.Domain;
 using Sanathanam.Api.Messaging;
+using Sanathanam.Api.SupabaseClient;
 using Sanathanam.Api.Tenancy;
 
 namespace Sanathanam.Api.Services;
@@ -9,8 +10,14 @@ namespace Sanathanam.Api.Services;
 public record CartLine(Guid ProductId, int Qty);
 public record AddressInput(string FullName, string Line1, string City, string Pincode, string? State);
 
-public class OrderService(AppDbContext db, TenantContext tenantContext, MessagingService messaging)
+public class OrderService(
+    AppDbContext db,
+    TenantContext tenantContext,
+    MessagingService messaging,
+    IEnumerable<SupabaseShopStore> shops)
 {
+    private readonly SupabaseShopStore? _shop = shops.FirstOrDefault();
+
     public async Task<Order> PlaceAsync(Guid userId, string phone, IReadOnlyList<CartLine> lines, Guid? addressId, AddressInput? address)
     {
         if (lines.Count == 0)
@@ -18,10 +25,19 @@ public class OrderService(AppDbContext db, TenantContext tenantContext, Messagin
 
         var tenant = tenantContext.Current ?? throw new InvalidOperationException("Unknown store.");
         var ids = lines.Select(l => l.ProductId).Distinct().ToList();
-        var products = await db.Products
-            .Where(p => ids.Contains(p.Id) && p.Available)
-            .Where(p => p.ProductTenants.Any(pt => pt.TenantId == tenant.Id))
-            .ToListAsync();
+
+        List<Product> products;
+        if (_shop is not null)
+        {
+            products = await _shop.GetAvailableProductsAsync(tenant.Id, ids);
+        }
+        else
+        {
+            products = await db.Products
+                .Where(p => ids.Contains(p.Id) && p.Available)
+                .Where(p => p.ProductTenants.Any(pt => pt.TenantId == tenant.Id))
+                .ToListAsync();
+        }
 
         if (products.Count != ids.Count)
             throw new InvalidOperationException("One or more products are unavailable.");
@@ -82,9 +98,16 @@ public class OrderService(AppDbContext db, TenantContext tenantContext, Messagin
             ShippingState = state,
             Items = items
         };
-        db.Orders.Add(order);
-        await db.SaveChangesAsync();
-        await db.Entry(order).Collection(o => o.Items).LoadAsync();
+
+        if (_shop is not null)
+            order = await _shop.InsertOrderAsync(order);
+        else
+        {
+            db.Orders.Add(order);
+            await db.SaveChangesAsync();
+            await db.Entry(order).Collection(o => o.Items).LoadAsync();
+        }
+
         await messaging.SendOrderWhatsAppAsync(order, tenant);
         return order;
     }
