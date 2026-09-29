@@ -5,7 +5,10 @@
 .env.divine-jewels
 .env.sanathanam
 !netlify/env.*.example
+!backend/env.production.example
 !backend/env.cloudrun.example
+!backend/env.cloudrun.yaml
+!backend/env.cloudrun.env
 node_modules/
 dist/
 .DS_Store

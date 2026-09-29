@@ -1,5 +1,10 @@
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5214'
+// Cloud Run production API. Override with VITE_API_URL (Netlify env / .env.*).
+const PROD_API = 'https://sanathanam-api-607793476151.asia-south1.run.app'
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? PROD_API : 'http://localhost:5214')
 const STOREFRONT_TENANT = import.meta.env.VITE_TENANT ?? 'divine-petals'
+
 
 const CUSTOMER_TOKEN = 'sanathanam.customer.token'
 const ADMIN_TOKEN = 'sanathanam.admin.token'

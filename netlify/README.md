@@ -3,7 +3,8 @@
 Create **three Netlify sites** that all point at this GitHub repository.
 Each site uses a different build command and env vars.
 
-API + database are **not** on Netlify — deploy those to **Google Cloud Run** + **Supabase** (see root [README.md](../README.md)).
+API + database are **not** on Netlify — deploy those to **Google Cloud Run** + **Supabase** (see [PRODUCTION.md](../PRODUCTION.md)).
+
 
 ## Sites
 
@@ -26,6 +27,12 @@ API + database are **not** on Netlify — deploy those to **Google Cloud Run** +
 ```
 VITE_API_URL=https://YOUR-CLOUD-RUN-URL.run.app
 VITE_TENANT=divine-petals   # or divine-jewels / sanathanam
+```
+
+For this project the Cloud Run API is:
+
+```
+VITE_API_URL=https://sanathanam-api-607793476151.asia-south1.run.app
 ```
 
 Copy values from the matching file under `netlify/env.*.example`.

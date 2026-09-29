@@ -1,4 +1,6 @@
 # Reference config for the Sanathanam Netlify site.
+# Netlify only auto-reads /netlify.toml at the repo root.
+# Use these values in Site settings → Build & deploy.
 
 [build]
   command = "npm run build:sanathanam"
@@ -7,4 +9,7 @@
 [build.environment]
   NODE_VERSION = "20"
   VITE_TENANT = "sanathanam"
-  # Set VITE_API_URL in the Netlify UI
+  VITE_API_URL = "https://sanathanam-api-607793476151.asia-south1.run.app"
+  VITE_URL_DIVINE_PETALS = "https://www.divinepetals.in"
+  VITE_URL_DIVINE_JEWELS = "https://jewels.sanathanamshop.in"
+  VITE_URL_SANATHANAM = "https://www.sanathanamshop.in"

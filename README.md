@@ -8,9 +8,13 @@ Three branded storefronts, one C# API. Customers sign in with SMS OTP. Order det
 | Divine Jewels | Jewellery | http://localhost:5174 |
 | Sanathanam | Textiles & dry fruits | http://localhost:5175 |
 
-**Production stack:** Netlify (frontends) + Google Cloud Run (API) + Supabase Postgres.
+**Production stack:** Netlify (frontends) + Google Cloud Run (API) + Supabase Postgres + MSG91 (SMS/WhatsApp).
 
 **Go-live instructions:** [`PRODUCTION.md`](PRODUCTION.md)
+
+> Google has **no WhatsApp API**. SMS OTP can use Firebase Phone Auth later; WhatsApp stays on MSG91 (already built in).
+
+
 
 ---
 
@@ -39,10 +43,10 @@ npm run dev:sanathanam       # :5175
 
 | Path | Role |
 |------|------|
-| `PRODUCTION.md` | Full production deploy guide |
+| `PRODUCTION.md` | Full production deploy guide (Cloud Run + Netlify + Supabase) |
 | `src/` | React storefronts (Vite modes per brand) |
 | `backend/src/Sanathanam.Api/` | ASP.NET Core API |
+| `backend/env.production.example` | API env template |
 | `backend/cloudbuild.yaml` | Cloud Build → Artifact Registry → Cloud Run |
-| `backend/env.cloudrun.example` | Cloud Run env template |
 | `netlify/` | Per-site env examples + deploy notes |
 | `netlify.toml` | Shared SPA redirects + headers |
