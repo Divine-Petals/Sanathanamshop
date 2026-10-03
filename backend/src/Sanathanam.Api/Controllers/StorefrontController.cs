@@ -45,16 +45,25 @@ public class StorefrontController(
         if (t is null) return NotFound(new { message = "Unknown store." });
 
         if (shop is not null)
-            return Ok(await shop.ListProductsForTenantAsync(t.Id));
+        {
+            try
+            {
+                return Ok(await shop.ListProductsForTenantAsync(t.Id));
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"WARNING Supabase products failed, EF fallback: {ex.Message}");
+            }
+        }
 
         var products = await db.Products
-            .Where(p => p.ProductTenants.Any(pt => pt.TenantId == t.Id))
             .OrderBy(p => p.Name)
             .Select(p => new
             {
                 id = p.Id,
                 name = p.Name,
                 price_in_inr = p.PriceInInr,
+                domain = p.Domain,
                 category = p.Category,
                 subcategory = p.Subcategory,
                 description = p.Description,
@@ -74,19 +83,27 @@ public class StorefrontController(
         if (t is null) return NotFound(new { message = "Unknown store." });
 
         if (shop is not null)
-            return Ok(await shop.ListCategoriesForTenantAsync(t.Id));
+        {
+            try
+            {
+                return Ok(await shop.ListCategoriesForTenantAsync(t.Id));
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"WARNING Supabase categories failed, EF fallback: {ex.Message}");
+            }
+        }
 
         var names = await db.Categories
-            .Where(c => c.TenantId == t.Id)
             .OrderBy(c => c.Name)
             .Select(c => c.Name)
+            .Distinct()
             .ToListAsync();
         var subs = await db.Subcategories
-            .Where(s => s.TenantId == t.Id)
             .OrderBy(s => s.Name)
             .ToListAsync();
         var fromProducts = await db.Products
-            .Where(p => p.ProductTenants.Any(pt => pt.TenantId == t.Id) && p.Subcategory != "")
+            .Where(p => p.Subcategory != "")
             .Select(p => new { p.Category, p.Subcategory })
             .Distinct()
             .ToListAsync();

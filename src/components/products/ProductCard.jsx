@@ -33,6 +33,7 @@ export default function ProductCard({ product }) {
           </span>
         )}
         <span className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm text-earth-600 text-[10px] font-medium px-2 py-0.5 rounded-full">
+          {product.domain ? `${product.domain} · ` : ''}
           {product.subcategory ? `${product.category} · ${product.subcategory}` : product.category}
         </span>
       </div>

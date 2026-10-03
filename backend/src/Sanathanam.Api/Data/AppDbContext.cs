@@ -94,6 +94,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Id).HasColumnName("id");
             e.Property(x => x.Name).HasColumnName("name");
             e.Property(x => x.PriceInInr).HasColumnName("price_in_inr").HasPrecision(10, 2);
+            e.Property(x => x.Domain).HasColumnName("domain");
             e.Property(x => x.Category).HasColumnName("category");
             e.Property(x => x.Subcategory).HasColumnName("subcategory");
             e.Property(x => x.Description).HasColumnName("description");

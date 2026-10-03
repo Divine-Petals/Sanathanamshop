@@ -66,11 +66,7 @@ openssl rand -base64 48   # Jwt__Key
 3. **Project Settings → API** → copy **Project URL** + **service_role** key → set as `SUPABASE_URL` / `SUPABASE_KEY` on Cloud Run. Products, orders, and admin use this client (PostgREST).
 4. **Project Settings → Database** → connection string for EF (users / OTP / addresses). Use **Direct** or **Session** pooler (port `5432`), **not** Transaction mode.
 
-Npgsql form:
-
-```text
-Host=db.YOUR_REF.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=YOUR_PASSWORD;SSL Mode=Require;Trust Server Certificate=true
-```
+Build the connection string from Supabase → **Project Settings → Database** and set it only on Cloud Run as `ConnectionStrings__Postgres`. Never commit that value. Prefer Session/Direct (port `5432`) and enable SSL; for Cloud Run also disable GSS encryption if the image lacks Kerberos libs.
 
 With `SUPABASE_URL` + `SUPABASE_KEY` set, the API seeds tenants + admin via PostgREST on first boot. **You must run `schema.sql` before the first Production boot** — the API no longer uses `EnsureCreated` for that path (so OTP user tables come from SQL too).
 

@@ -7,8 +7,9 @@
 !netlify/env.*.example
 !backend/env.production.example
 !backend/env.cloudrun.example
-!backend/env.cloudrun.yaml
-!backend/env.cloudrun.env
+# Never commit filled Cloud Run env files (connection strings / keys).
+backend/env.cloudrun.env
+backend/env.cloudrun.yaml
 node_modules/
 dist/
 .DS_Store

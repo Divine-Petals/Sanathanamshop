@@ -2,9 +2,12 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAdminInventory } from '../context/AdminInventoryContext'
 import { useAdminSite } from '../context/AdminSiteContext'
 
+import { PRODUCT_DOMAINS, normalizeProductDomain } from '../lib/domains'
+
 const EMPTY_FORM = {
   name: '',
   price_in_inr: '',
+  domain: PRODUCT_DOMAINS[0],
   category: '',
   subcategory: '',
   description: '',
@@ -17,6 +20,7 @@ function productToForm(product) {
   return {
     name: product.name ?? '',
     price_in_inr: product.price_in_inr ?? '',
+    domain: normalizeProductDomain(product.domain) || PRODUCT_DOMAINS[0],
     category: product.category ?? '',
     subcategory: product.subcategory ?? '',
     description: product.description ?? '',
@@ -141,6 +145,25 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
             placeholder="249"
             className="w-full min-h-[44px] px-3 py-2 border border-earth-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green"
           />
+        </div>
+
+        {/* Domain */}
+        <div>
+          <label className="block text-xs font-semibold text-earth-600 mb-1" htmlFor="prod-domain">
+            Domain
+          </label>
+          <select
+            id="prod-domain"
+            value={form.domain}
+            onChange={(e) => set('domain', e.target.value)}
+            className="w-full min-h-[44px] px-3 py-2 border border-earth-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green bg-white"
+          >
+            {PRODUCT_DOMAINS.map((domain) => (
+              <option key={domain} value={domain}>
+                {domain}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Category */}
@@ -347,6 +370,9 @@ export default function AdminPage() {
         <div>
           <h1 className="font-serif text-2xl md:text-3xl font-bold text-deep-green">
             {site.name} — Inventory
+            <span className="block text-xs font-normal text-earth-400 mt-1">
+              Assign each product a Domain: Jewels, Soaps, or Arts.
+            </span>
           </h1>
           <p className="text-earth-500 text-sm mt-1">
             {loading ? 'Loading…' : `${products.length} product${products.length !== 1 ? 's' : ''} on this site`}
@@ -394,6 +420,7 @@ export default function AdminPage() {
             <thead className="bg-earth-50 text-left border-b border-earth-100">
               <tr>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Product</th>
+                <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Domain</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Category</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Subcategory</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Price (₹)</th>
@@ -426,6 +453,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-earth-600 whitespace-nowrap">{product.domain || '—'}</td>
                   <td className="px-4 py-3 text-earth-600 whitespace-nowrap">{product.category}</td>
                   <td className="px-4 py-3 text-earth-600 whitespace-nowrap">{product.subcategory || '—'}</td>
                   <td className="px-4 py-3 font-semibold text-deep-green whitespace-nowrap">₹{product.price_in_inr}</td>
@@ -510,8 +538,7 @@ export default function AdminPage() {
                   {product.name}
                 </p>
                 <p className="text-earth-500 text-xs">
-                  {product.category}
-                  {product.subcategory ? ` · ${product.subcategory}` : ''}
+                  {[product.domain, product.category, product.subcategory].filter(Boolean).join(' · ')}
                 </p>
                 <p className="text-saffron-600 font-bold text-sm mt-0.5">₹{product.price_in_inr}</p>
                 {product.bestseller && (
