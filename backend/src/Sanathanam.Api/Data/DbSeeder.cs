@@ -112,6 +112,7 @@ public static class DbSeeder
             {
                 foreach (var product in products)
                 {
+                    product.Domain = DomainForSlug(tenant.Slug);
                     db.Products.Add(product);
                     db.ProductTenants.Add(new ProductTenant { ProductId = product.Id, TenantId = tenant.Id });
                 }
@@ -125,6 +126,8 @@ public static class DbSeeder
                     .ToListAsync();
                 foreach (var product in existing)
                 {
+                    if (string.IsNullOrWhiteSpace(product.Domain))
+                        product.Domain = DomainForSlug(tenant.Slug);
                     if (!string.IsNullOrWhiteSpace(product.Subcategory)) continue;
                     if (byName.TryGetValue(product.Name, out var seed))
                         product.Subcategory = seed.Subcategory;
@@ -149,10 +152,18 @@ public static class DbSeeder
 
         foreach (var product in products)
         {
+            product.Domain = DomainForSlug(tenant.Slug);
             db.Products.Add(product);
             db.ProductTenants.Add(new ProductTenant { ProductId = product.Id, TenantId = tenant.Id });
         }
     }
+
+    private static string DomainForSlug(string slug) => slug switch
+    {
+        "divine-jewels" => "Jewels",
+        "divine-petals" => "Soaps",
+        _ => "Arts"
+    };
 
     private static void SeedSubcategories(AppDbContext db, Tenant tenant, Dictionary<string, string[]> subMap)
     {

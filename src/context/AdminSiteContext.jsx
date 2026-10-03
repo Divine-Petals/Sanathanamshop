@@ -1,16 +1,12 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { setAdminTenant, getAdminTenant } from '../lib/api'
 
-export const ADMIN_SITES = [
-  { slug: 'divine-petals', name: 'Divine Petals', hint: 'Soaps' },
-  { slug: 'divine-jewels', name: 'Divine Jewels', hint: 'Jewellery' },
-  { slug: 'sanathanam', name: 'Sanathanam', hint: 'Textiles & dry fruits' },
-]
+export const ADMIN_SITES = [{ slug: 'sanathanam', name: 'Sanathanam', hint: 'Jewels · Soaps · Arts' }]
 
 const AdminSiteContext = createContext(null)
 
 export function AdminSiteProvider({ children }) {
-  const [activeSite, setActiveSiteState] = useState(() => getAdminTenant())
+  const [activeSite, setActiveSiteState] = useState(() => getAdminTenant() || 'sanathanam')
 
   const setActiveSite = useCallback((slug) => {
     setAdminTenant(slug)
@@ -20,7 +16,7 @@ export function AdminSiteProvider({ children }) {
   const site = ADMIN_SITES.find((s) => s.slug === activeSite) ?? ADMIN_SITES[0]
 
   return (
-    <AdminSiteContext.Provider value={{ activeSite, setActiveSite, site, sites: ADMIN_SITES }}>
+    <AdminSiteContext.Provider value={{ activeSite: site.slug, setActiveSite, site, sites: ADMIN_SITES }}>
       {children}
     </AdminSiteContext.Provider>
   )

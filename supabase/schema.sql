@@ -40,6 +40,7 @@ create table if not exists products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   price_in_inr numeric(10,2) not null,
+  domain text not null default '',
   category text not null default '',
   subcategory text not null default '',
   description text not null default '',
@@ -148,3 +149,6 @@ alter table message_logs enable row level security;
 grant usage on schema public to anon, authenticated, service_role;
 grant all on all tables in schema public to service_role;
 grant select on tenants, categories, subcategories, products, product_tenants to anon, authenticated;
+
+-- Safe for existing projects created before domain filter.
+alter table products add column if not exists domain text not null default '';

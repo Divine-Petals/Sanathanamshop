@@ -27,45 +27,42 @@ public class SupabaseShopStore(Supabase.Client client)
 
     public async Task<List<object>> ListProductsForTenantAsync(Guid tenantId)
     {
-        var links = await client.From<ProductTenantRow>()
-            .Filter("tenant_id", Operator.Equals, tenantId.ToString())
-            .Get();
+        _ = tenantId;
+        var links = await client.From<ProductTenantRow>().Get();
         var ids = links.Models.Select(x => x.ProductId).ToHashSet();
-        if (ids.Count == 0) return [];
-
+        // Single storefront: catalog is shared across former brand tenants.
         var products = await client.From<ProductRow>().Order("name", Ordering.Ascending).Get();
         return products.Models
-            .Where(p => ids.Contains(p.Id))
+            .Where(p => ids.Count == 0 || ids.Contains(p.Id))
             .Select(MapProduct)
             .ToList();
     }
 
     public async Task<object> ListCategoriesForTenantAsync(Guid tenantId)
     {
+        _ = tenantId;
         var cats = await client.From<CategoryRow>()
-            .Filter("tenant_id", Operator.Equals, tenantId.ToString())
             .Order("name", Ordering.Ascending)
             .Get();
         var subs = await client.From<SubcategoryRow>()
-            .Filter("tenant_id", Operator.Equals, tenantId.ToString())
             .Order("name", Ordering.Ascending)
             .Get();
-        var links = await client.From<ProductTenantRow>()
-            .Filter("tenant_id", Operator.Equals, tenantId.ToString())
-            .Get();
-        var productIds = links.Models.Select(x => x.ProductId).ToHashSet();
         var allProducts = (await client.From<ProductRow>().Get()).Models
-            .Where(p => productIds.Contains(p.Id) && !string.IsNullOrEmpty(p.Subcategory))
+            .Where(p => !string.IsNullOrEmpty(p.Subcategory))
             .Select(p => new { p.Category, p.Subcategory })
             .ToList();
 
-        return cats.Models.Select(c =>
-        {
-            var seeded = subs.Models.Where(s => s.CategoryName == c.Name).Select(s => s.Name);
-            var productSubs = allProducts.Where(p => p.Category == c.Name).Select(p => p.Subcategory);
-            var subcategories = seeded.Concat(productSubs).Distinct().OrderBy(x => x).ToList();
-            return new { name = c.Name, subcategories };
-        }).ToList();
+        return cats.Models
+            .GroupBy(c => c.Name)
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var name = g.Key;
+                var seeded = subs.Models.Where(s => s.CategoryName == name).Select(s => s.Name);
+                var productSubs = allProducts.Where(p => p.Category == name).Select(p => p.Subcategory);
+                var subcategories = seeded.Concat(productSubs).Distinct().OrderBy(x => x).ToList();
+                return new { name, subcategories };
+            }).ToList();
     }
 
     public async Task<object> CreateProductAsync(Guid tenantId, ProductWriteDto body)
@@ -75,6 +72,7 @@ public class SupabaseShopStore(Supabase.Client client)
             Id = Guid.NewGuid(),
             Name = body.Name,
             PriceInInr = body.PriceInInr,
+            Domain = body.Domain ?? "",
             Category = body.Category,
             Subcategory = body.Subcategory ?? "",
             Description = body.Description ?? "",
@@ -103,6 +101,7 @@ public class SupabaseShopStore(Supabase.Client client)
             .Filter("id", Operator.Equals, id.ToString())
             .Set(x => x.Name!, body.Name)
             .Set(x => x.PriceInInr, body.PriceInInr)
+            .Set(x => x.Domain!, body.Domain ?? "")
             .Set(x => x.Category!, body.Category)
             .Set(x => x.Subcategory!, body.Subcategory ?? "")
             .Set(x => x.Description!, body.Description ?? "")
@@ -315,6 +314,7 @@ public class SupabaseShopStore(Supabase.Client client)
         Id = p.Id,
         Name = p.Name,
         PriceInInr = p.PriceInInr,
+        Domain = p.Domain,
         Category = p.Category,
         Subcategory = p.Subcategory,
         Description = p.Description,
@@ -329,6 +329,7 @@ public class SupabaseShopStore(Supabase.Client client)
         id = p.Id,
         name = p.Name,
         price_in_inr = p.PriceInInr,
+        domain = p.Domain,
         category = p.Category,
         subcategory = p.Subcategory,
         description = p.Description,
@@ -348,4 +349,5 @@ public record ProductWriteDto(
     string[]? Ingredients,
     bool Bestseller,
     bool Available,
-    string? ImageUrl);
+    string? ImageUrl,
+    string? Domain = null);

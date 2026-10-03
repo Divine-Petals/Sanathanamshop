@@ -19,7 +19,8 @@ public record ProductWrite(
     string[]? Ingredients,
     bool Bestseller,
     bool Available,
-    string? ImageUrl);
+    string? ImageUrl,
+    string? Domain);
 public record StatusPatch(string Status);
 
 [ApiController]
@@ -66,6 +67,7 @@ public class AdminController(
             Id = Guid.NewGuid(),
             Name = body.Name,
             PriceInInr = body.PriceInInr,
+            Domain = body.Domain ?? "",
             Category = body.Category,
             Subcategory = body.Subcategory ?? "",
             Description = body.Description ?? "",
@@ -94,6 +96,7 @@ public class AdminController(
         if (product is null) return NotFound();
         product.Name = body.Name;
         product.PriceInInr = body.PriceInInr;
+        product.Domain = body.Domain ?? "";
         product.Category = body.Category;
         product.Subcategory = body.Subcategory ?? "";
         product.Description = body.Description ?? "";
@@ -183,13 +186,14 @@ public class AdminController(
 
     private static ProductWriteDto ToDto(ProductWrite body) => new(
         body.Name, body.PriceInInr, body.Category, body.Subcategory, body.Description,
-        body.Ingredients, body.Bestseller, body.Available, body.ImageUrl);
+        body.Ingredients, body.Bestseller, body.Available, body.ImageUrl, body.Domain);
 
     private static object Map(Product p) => new
     {
         id = p.Id,
         name = p.Name,
         price_in_inr = p.PriceInInr,
+        domain = p.Domain,
         category = p.Category,
         subcategory = p.Subcategory,
         description = p.Description,

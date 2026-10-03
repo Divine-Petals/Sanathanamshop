@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useProducts } from '../context/ProductContext'
 import { useCart } from '../context/CartContext'
 import { useBrand } from '../context/BrandContext'
 import { getThemeMeta } from '../lib/theme'
+import { PRODUCT_DOMAINS, normalizeProductDomain } from '../lib/domains'
 import ProductGrid from '../components/products/ProductGrid'
 import FilterDrawer from '../components/products/FilterDrawer'
 
@@ -11,6 +13,9 @@ export default function ProductsPage() {
   const { totalItems, totalPrice, setIsCartOpen } = useCart()
   const brand = useBrand()
   const t = getThemeMeta(brand)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const domainFromUrl = normalizeProductDomain(searchParams.get('domain')) || 'All'
+  const [selectedDomain, setSelectedDomain] = useState(domainFromUrl)
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedSubcategory, setSelectedSubcategory] = useState('All')
   const [filterOpen, setFilterOpen] = useState(false)
@@ -37,6 +42,10 @@ export default function ProductsPage() {
   }, [categoryTree, selectedCategory])
 
   useEffect(() => {
+    setSelectedDomain(domainFromUrl)
+  }, [domainFromUrl])
+
+  useEffect(() => {
     setSelectedCategory('All')
     setSelectedSubcategory('All')
     setPriceRange(maxProductPrice)
@@ -46,19 +55,30 @@ export default function ProductsPage() {
     setSelectedSubcategory('All')
   }, [selectedCategory])
 
+  const handleSelectDomain = (domain) => {
+    setSelectedDomain(domain)
+    const next = new URLSearchParams(searchParams)
+    if (!domain || domain === 'All') next.delete('domain')
+    else next.set('domain', domain)
+    setSearchParams(next, { replace: true })
+  }
+
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (p.available === false) return false
+      if (selectedDomain !== 'All' && normalizeProductDomain(p.domain) !== selectedDomain) return false
       if (selectedCategory !== 'All' && p.category !== selectedCategory) return false
       if (selectedSubcategory !== 'All' && (p.subcategory || '') !== selectedSubcategory) return false
       if (p.price_in_inr > priceRange) return false
       if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
       return true
     })
-  }, [products, selectedCategory, selectedSubcategory, priceRange, searchQuery])
+  }, [products, selectedDomain, selectedCategory, selectedSubcategory, priceRange, searchQuery])
 
   const activeFilterCount =
-    (selectedCategory !== 'All' ? 1 : 0) + (selectedSubcategory !== 'All' ? 1 : 0)
+    (selectedDomain !== 'All' ? 1 : 0) +
+    (selectedCategory !== 'All' ? 1 : 0) +
+    (selectedSubcategory !== 'All' ? 1 : 0)
 
   if (loading) {
     return (
@@ -130,6 +150,9 @@ export default function ProductsPage() {
         <FilterDrawer
           isOpen={filterOpen}
           onClose={() => setFilterOpen(false)}
+          domains={PRODUCT_DOMAINS}
+          selectedDomain={selectedDomain}
+          onSelectDomain={handleSelectDomain}
           categories={categories}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}

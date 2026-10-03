@@ -51,6 +51,7 @@ public class ProductRow : BaseModel
     public Guid Id { get; set; }
     [Column("name")] public string Name { get; set; } = "";
     [Column("price_in_inr")] public decimal PriceInInr { get; set; }
+    [Column("domain")] public string Domain { get; set; } = "";
     [Column("category")] public string Category { get; set; } = "";
     [Column("subcategory")] public string Subcategory { get; set; } = "";
     [Column("description")] public string Description { get; set; } = "";

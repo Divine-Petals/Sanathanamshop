@@ -1,4 +1,7 @@
 function FilterContent({
+  domains = [],
+  selectedDomain = 'All',
+  onSelectDomain,
   categories,
   selectedCategory,
   onSelectCategory,
@@ -14,6 +17,27 @@ function FilterContent({
   const step = priceMax > 2000 ? 100 : 10
   return (
     <div className="space-y-6">
+      {domains.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-deep-green text-sm mb-3">Domain</h3>
+          <div className="space-y-2">
+            {['All', ...domains].map((domain) => (
+              <button
+                key={domain}
+                onClick={() => onSelectDomain?.(domain)}
+                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium min-h-[44px] transition-colors ${
+                  selectedDomain === domain
+                    ? 'bg-saffron-500 text-white'
+                    : 'bg-earth-50 text-earth-700 hover:bg-earth-100'
+                }`}
+              >
+                {domain}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 className="font-semibold text-deep-green text-sm mb-3">Category</h3>
         <div className="space-y-2">
@@ -86,6 +110,9 @@ function FilterContent({
 export default function FilterDrawer({
   isOpen,
   onClose,
+  domains = [],
+  selectedDomain = 'All',
+  onSelectDomain,
   categories,
   selectedCategory,
   onSelectCategory,
@@ -97,6 +124,9 @@ export default function FilterDrawer({
   priceMax = 400,
 }) {
   const contentProps = {
+    domains,
+    selectedDomain,
+    onSelectDomain,
     categories,
     selectedCategory,
     onSelectCategory,
