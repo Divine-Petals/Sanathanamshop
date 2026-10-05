@@ -18,8 +18,6 @@ import LoginPage from './pages/LoginPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import CheckoutPage from './pages/CheckoutPage'
 import AccountPage, { OrderDetailPage } from './pages/AccountPage'
-import BrandsPage from './pages/BrandsPage'
-
 function CustomerRoute({ children }) {
   const { isAuthenticated, authLoading } = useAuth()
   const location = useLocation()
@@ -92,14 +90,7 @@ export default function App() {
                       </StoreLayout>
                     }
                   />
-                  <Route
-                    path="/brands"
-                    element={
-                      <StoreLayout>
-                        <BrandsPage />
-                      </StoreLayout>
-                    }
-                  />
+                  <Route path="/brands" element={<Navigate to="/" replace />} />
                   <Route
                     path="/login"
                     element={

@@ -16,7 +16,6 @@ export default function Navbar() {
   const links = [
     { to: '/', label: 'Home' },
     { to: '/products', label: t.exploreLabel },
-    { to: '/brands', label: 'Our brands' },
     { to: isAuthenticated ? '/account' : '/login', label: isAuthenticated ? 'Account' : 'Sign in' },
   ]
 

@@ -22,11 +22,8 @@ export default function Footer() {
           </div>
           <div>
             <p className="font-semibold text-sm mb-3 opacity-95">Shop</p>
-            <Link to="/products" className="block text-xs opacity-70 hover:opacity-100 transition-opacity mb-2">
+            <Link to="/products" className="block text-xs opacity-70 hover:opacity-100 transition-opacity">
               {t.exploreLabel}
-            </Link>
-            <Link to="/brands" className="block text-xs opacity-70 hover:opacity-100 transition-opacity">
-              Our brands
             </Link>
           </div>
         </div>

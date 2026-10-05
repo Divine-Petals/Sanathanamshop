@@ -272,7 +272,16 @@ static bool IsTruthy(string? value)
 static string? NormalizePostgresConnection(string? raw)
 {
     if (string.IsNullOrWhiteSpace(raw)) return raw;
-    var s = raw.Trim().Trim('"');
+    var s = raw.Trim().Trim('"').Trim();
+
+    // A bare password (no Host= / URI) makes Npgsql throw
+    // "Format of the initialization string does not conform to specification starting at index 0."
+    var looksLikeConn = s.Contains('=', StringComparison.Ordinal)
+                        || s.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+                        || s.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase);
+    if (!looksLikeConn)
+        throw new InvalidOperationException(
+            "ConnectionStrings:Postgres must be a full Npgsql string or postgres:// URI, not a password alone.");
 
     if (s.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
         || s.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
