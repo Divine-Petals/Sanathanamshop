@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../context/AdminAuthContext'
+import { useAdminSite } from '../../context/AdminSiteContext'
 
 export default function AdminLayout({ children }) {
   const { logout } = useAdminAuth()
+  const { activeSite, setActiveSite, sites } = useAdminSite()
   const navigate = useNavigate()
 
   return (
@@ -12,7 +14,7 @@ export default function AdminLayout({ children }) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-serif text-lg font-bold text-deep-green leading-tight">Sanathanam Admin</p>
-              <p className="text-xs text-earth-500">Inventory for sanathanamshop.in</p>
+              <p className="text-xs text-earth-500">Manage all storefronts</p>
             </div>
             <button
               type="button"
@@ -24,6 +26,31 @@ export default function AdminLayout({ children }) {
             >
               Logout
             </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Select storefront">
+            {sites.map((s) => {
+              const active = s.slug === activeSite
+              return (
+                <button
+                  key={s.slug}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveSite(s.slug)}
+                  className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-semibold transition-colors border ${
+                    active
+                      ? 'bg-deep-green text-white border-deep-green shadow-sm'
+                      : 'bg-white text-earth-700 border-earth-200 hover:border-saffron-300 hover:text-saffron-700'
+                  }`}
+                >
+                  <span>{s.name}</span>
+                  <span className={`block text-[10px] font-normal mt-0.5 ${active ? 'text-earth-200' : 'text-earth-400'}`}>
+                    {s.hint}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
       </header>
