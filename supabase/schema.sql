@@ -18,8 +18,12 @@ create table if not exists tenants (
   story_body text not null default '',
   logo_url text not null default '',
   hero_video_url text not null default '',
-  order_prefix text not null default 'DP'
+  order_prefix text not null default 'DP',
+  whatsapp_number text not null default ''
 );
+
+-- Existing databases: add the shop WhatsApp number used for wa.me order links.
+alter table tenants add column if not exists whatsapp_number text not null default '';
 
 create table if not exists categories (
   id uuid primary key default gen_random_uuid(),

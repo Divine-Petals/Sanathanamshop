@@ -177,6 +177,14 @@ public class SupabaseShopStore(Supabase.Client client)
         }).ToList();
     }
 
+    public async Task UpdateTenantWhatsAppAsync(Guid tenantId, string number)
+    {
+        await client.From<TenantRow>()
+            .Filter("id", Operator.Equals, tenantId.ToString())
+            .Set(x => x.WhatsAppNumber, number)
+            .Update();
+    }
+
     public async Task<object?> PatchOrderStatusAsync(Guid id, OrderStatus status)
     {
         var res = await client.From<OrderRow>().Filter("id", Operator.Equals, id.ToString()).Get();
@@ -306,7 +314,8 @@ public class SupabaseShopStore(Supabase.Client client)
         StoryBody = t.StoryBody,
         LogoUrl = t.LogoUrl,
         HeroVideoUrl = t.HeroVideoUrl,
-        OrderPrefix = t.OrderPrefix
+        OrderPrefix = t.OrderPrefix,
+        WhatsAppNumber = t.WhatsAppNumber ?? ""
     };
 
     private static Product ToProduct(ProductRow p) => new()

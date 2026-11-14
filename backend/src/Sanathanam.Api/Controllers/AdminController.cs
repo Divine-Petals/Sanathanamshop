@@ -22,6 +22,7 @@ public record ProductWrite(
     string? ImageUrl,
     string? Domain);
 public record StatusPatch(string Status);
+public record SettingsWrite(string? WhatsappNumber);
 
 [ApiController]
 [Route("api/admin")]
@@ -162,6 +163,40 @@ public class AdminController(
             created_at = o.CreatedAt,
             items = o.Items.Select(i => new { name = i.Name, qty = i.Qty, price_in_inr = i.PriceInInr })
         }));
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpGet("settings")]
+    public IActionResult GetSettings()
+    {
+        var tenant = tenantContext.Current;
+        if (tenant is null) return NotFound(new { message = "Unknown store." });
+        return Ok(new { whatsapp_number = tenant.WhatsAppNumber });
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpPut("settings")]
+    public async Task<IActionResult> PutSettings([FromBody] SettingsWrite body)
+    {
+        var tenant = tenantContext.Current;
+        if (tenant is null) return NotFound(new { message = "Unknown store." });
+
+        // wa.me needs the international number, digits only. A 10-digit number is treated as Indian.
+        var digits = new string((body.WhatsappNumber ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length == 10) digits = "91" + digits;
+        if (digits.Length != 0 && (digits.Length < 11 || digits.Length > 15))
+            return BadRequest(new { message = "Enter a WhatsApp number with country code, e.g. 919876543210." });
+
+        if (UseSupabase)
+            await shop!.UpdateTenantWhatsAppAsync(tenant.Id, digits);
+        else
+        {
+            var row = await db.Tenants.FindAsync(tenant.Id);
+            if (row is null) return NotFound();
+            row.WhatsAppNumber = digits;
+            await db.SaveChangesAsync();
+        }
+        return Ok(new { whatsapp_number = digits });
     }
 
     [Authorize(Roles = "admin")]

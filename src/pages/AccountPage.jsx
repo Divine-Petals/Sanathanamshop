@@ -3,6 +3,8 @@ import { Link, useParams, useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { useBrand } from '../context/BrandContext'
+import { orderWhatsAppLink } from '../lib/whatsapp'
 
 export default function AccountPage() {
   const { isAuthenticated, user, authLoading, logout, updateName } = useAuth()
@@ -80,6 +82,7 @@ export function OrderDetailPage() {
   const location = useLocation()
   const { isAuthenticated, authLoading } = useAuth()
   const { setCartItems } = useCart()
+  const brand = useBrand()
   const navigate = useNavigate()
   const [order, setOrder] = useState(null)
   const justPlaced = location.state?.justPlaced
@@ -106,9 +109,17 @@ export function OrderDetailPage() {
     <div className="max-w-xl mx-auto px-4 py-10">
       {justPlaced && (
         <p className="mb-4 text-sm bg-earth-50 border border-earth-100 rounded-xl px-3 py-2">
-          Order placed. A WhatsApp confirmation is on its way.
+          Order placed. Send it to {brand.name} on WhatsApp to confirm.
         </p>
       )}
+      <a
+        href={orderWhatsAppLink(order, brand)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center w-full min-h-[48px] mb-6 bg-[#25D366] text-white font-bold rounded-xl"
+      >
+        Send order on WhatsApp
+      </a>
       <h1 className="font-serif text-2xl font-bold text-deep-green">{order.order_number}</h1>
       <p className="text-xs uppercase text-saffron-600 mt-1">{order.status}</p>
       <div className="mt-6 space-y-2">

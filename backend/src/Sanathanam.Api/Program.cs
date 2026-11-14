@@ -50,15 +50,13 @@ if (skipSms
     if (!builder.Environment.IsDevelopment())
         Console.Error.WriteLine(
             skipSms
-                ? "WARNING: Otp:SkipSend/StaticCode set — SMS/WhatsApp use Dev loggers (no MSG91)."
-                : "WARNING: Msg91:AuthKey is empty — OTP/WhatsApp use Dev loggers. Configure MSG91 before real customers.");
+                ? "WARNING: Otp:SkipSend/StaticCode set — SMS uses the Dev logger (no MSG91)."
+                : "WARNING: Msg91:AuthKey is empty — OTP uses the Dev logger. Configure MSG91 before real customers.");
     builder.Services.AddSingleton<ISmsSender, DevSmsSender>();
-    builder.Services.AddSingleton<IWhatsAppSender, DevWhatsAppSender>();
 }
 else
 {
     builder.Services.AddHttpClient<ISmsSender, Msg91SmsSender>();
-    builder.Services.AddHttpClient<IWhatsAppSender, Msg91WhatsAppSender>();
 }
 
 var usePostgres = IsTruthy(builder.Configuration["UsePostgres"]);
@@ -159,6 +157,23 @@ catch (Exception ex)
 {
     efReady = false;
     Console.Error.WriteLine($"ERROR database startup (API will start unhealthy): {ex.Message}");
+}
+
+if (efReady && usePostgres)
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.ExecuteSqlRawAsync(
+            "alter table tenants add column if not exists whatsapp_number text not null default ''");
+        // Let PostgREST (Supabase client) see the new column without a restart.
+        await db.Database.ExecuteSqlRawAsync("notify pgrst, 'reload schema'");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"WARNING could not add tenants.whatsapp_number (run supabase/schema.sql): {ex.Message}");
+    }
 }
 
 if (supabaseShop is not null)

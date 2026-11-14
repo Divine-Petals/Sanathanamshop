@@ -40,6 +40,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.LogoUrl).HasColumnName("logo_url");
             e.Property(x => x.HeroVideoUrl).HasColumnName("hero_video_url");
             e.Property(x => x.OrderPrefix).HasColumnName("order_prefix");
+            e.Property(x => x.WhatsAppNumber).HasColumnName("whatsapp_number");
             e.HasIndex(x => x.Slug).IsUnique();
             e.HasIndex(x => x.Domain);
         });

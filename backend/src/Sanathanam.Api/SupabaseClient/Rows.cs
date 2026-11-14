@@ -23,6 +23,7 @@ public class TenantRow : BaseModel
     [Column("logo_url")] public string LogoUrl { get; set; } = "";
     [Column("hero_video_url")] public string HeroVideoUrl { get; set; } = "";
     [Column("order_prefix")] public string OrderPrefix { get; set; } = "DP";
+    [Column("whatsapp_number")] public string WhatsAppNumber { get; set; } = "";
 }
 
 [Table("categories")]

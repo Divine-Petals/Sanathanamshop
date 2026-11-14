@@ -1,0 +1,25 @@
+// The shop's WhatsApp number comes from the store settings (Admin → Inventory).
+// Without one, wa.me lets the customer pick a chat.
+
+export function orderWhatsAppText(order, brandName) {
+  const lines = [
+    `Hi ${brandName}, I placed order ${order.order_number}.`,
+    '',
+    ...order.items.map((i) => `• ${i.name} × ${i.qty} — ₹${(i.price_in_inr * i.qty).toFixed(2)}`),
+    '',
+    `Total: ₹${Number(order.total_price).toFixed(2)}`,
+    `Phone: ${order.phone}`,
+  ]
+  const s = order.shipping ?? {}
+  const address = [s.shipping_name, s.shipping_line1, s.shipping_city, s.shipping_pincode, s.shipping_state]
+    .map((v) => (v ?? '').trim())
+    .filter(Boolean)
+    .join(', ')
+  lines.push(address ? `Address: ${address}` : 'Address: I will share it here.')
+  return lines.join('\n')
+}
+
+export function orderWhatsAppLink(order, brand) {
+  const number = (brand.whatsapp_number ?? '').replace(/\D/g, '')
+  return `https://wa.me/${number}?text=${encodeURIComponent(orderWhatsAppText(order, brand.name))}`
+}

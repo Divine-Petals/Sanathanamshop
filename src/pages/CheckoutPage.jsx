@@ -50,8 +50,9 @@ export default function CheckoutPage() {
       const payload = {
         items: cartItems.map((i) => ({ product_id: i.id, qty: i.qty })),
       }
+      const hasNewAddress = ['full_name', 'line1', 'city', 'pincode'].some((k) => form[k].trim())
       if (addressId) payload.address_id = addressId
-      else {
+      else if (hasNewAddress) {
         payload.address = {
           full_name: form.full_name,
           line1: form.line1,
@@ -75,7 +76,7 @@ export default function CheckoutPage() {
     <div className="max-w-3xl mx-auto px-4 py-10">
       <h1 className="font-serif text-3xl font-bold text-deep-green mb-2">Checkout</h1>
       <p className="text-sm text-earth-500 mb-8">
-        Signed in as {user.phone}. {brand.name} will send the order on WhatsApp.
+        Signed in as {user.phone}. After placing the order, send it to {brand.name} on WhatsApp.
       </p>
       {cartItems.length === 0 ? (
         <p className="text-earth-500">Your cart is empty.</p>
@@ -114,10 +115,12 @@ export default function CheckoutPage() {
 
           {!addressId && (
             <div className="grid gap-3">
+              <p className="text-xs text-earth-500">
+                Delivery address (optional). You can also share it on WhatsApp.
+              </p>
               {['full_name', 'line1', 'city', 'pincode'].map((key) => (
                 <input
                   key={key}
-                  required
                   placeholder={key.replace('_', ' ')}
                   value={form[key]}
                   onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}

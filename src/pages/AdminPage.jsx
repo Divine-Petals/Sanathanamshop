@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAdminInventory } from '../context/AdminInventoryContext'
 import { useAdminSite } from '../context/AdminSiteContext'
+import { api } from '../lib/api'
 
 import { PRODUCT_DOMAINS, normalizeProductDomain } from '../lib/domains'
 
@@ -324,6 +325,66 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
   )
 }
 
+function WhatsAppSettings({ siteSlug }) {
+  const [number, setNumber] = useState('')
+  const [status, setStatus] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setStatus('')
+    api.adminSettings()
+      .then((s) => setNumber(s.whatsapp_number ?? ''))
+      .catch((err) => setStatus(err.message))
+  }, [siteSlug])
+
+  const save = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setStatus('')
+    try {
+      const saved = await api.adminSaveSettings({ whatsapp_number: number })
+      setNumber(saved.whatsapp_number ?? '')
+      setStatus('Saved')
+    } catch (err) {
+      setStatus(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="mb-6 bg-white border border-earth-100 rounded-2xl p-4">
+      <label htmlFor="wa-number" className="block text-sm font-semibold text-deep-green">
+        Order WhatsApp number
+      </label>
+      <p className="text-xs text-earth-500 mt-1 mb-3">
+        Customers send their order to this number after checkout. Include the country code, e.g. 919876543210.
+      </p>
+      <div className="flex gap-2">
+        <input
+          id="wa-number"
+          type="tel"
+          inputMode="numeric"
+          value={number}
+          onChange={(e) => setNumber(e.target.value)}
+          placeholder="919876543210"
+          className="flex-1 min-w-0 min-h-[44px] px-3 border border-earth-200 rounded-xl text-sm"
+        />
+        <button
+          type="submit"
+          disabled={saving}
+          className="min-h-[44px] px-4 bg-deep-green text-white font-semibold rounded-xl text-sm disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      {status && (
+        <p className={`text-xs mt-2 ${status === 'Saved' ? 'text-green-700' : 'text-red-600'}`}>{status}</p>
+      )}
+    </form>
+  )
+}
+
 export default function AdminPage() {
   const { products, categories, categoryTree, loading, error, addProduct, updateProduct, removeProduct, toggleAvailability } =
     useAdminInventory()
@@ -390,6 +451,8 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      <WhatsAppSettings siteSlug={site.slug} />
 
       {error && (
         <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>

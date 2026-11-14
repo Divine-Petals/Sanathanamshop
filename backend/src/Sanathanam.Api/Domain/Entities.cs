@@ -17,6 +17,7 @@ public class Tenant
     public string LogoUrl { get; set; } = "";
     public string HeroVideoUrl { get; set; } = "";
     public string OrderPrefix { get; set; } = "DP";
+    public string WhatsAppNumber { get; set; } = "";
     public ICollection<ProductTenant> ProductTenants { get; set; } = [];
 }
 

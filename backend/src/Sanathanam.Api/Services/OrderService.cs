@@ -1,19 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Sanathanam.Api.Data;
 using Sanathanam.Api.Domain;
-using Sanathanam.Api.Messaging;
 using Sanathanam.Api.SupabaseClient;
 using Sanathanam.Api.Tenancy;
 
 namespace Sanathanam.Api.Services;
 
 public record CartLine(Guid ProductId, int Qty);
-public record AddressInput(string FullName, string Line1, string City, string Pincode, string? State);
+public record AddressInput(string? FullName, string? Line1, string? City, string? Pincode, string? State);
 
 public class OrderService(
     AppDbContext db,
     TenantContext tenantContext,
-    MessagingService messaging,
     IEnumerable<SupabaseShopStore> shops)
 {
     private readonly SupabaseShopStore? _shop = shops.FirstOrDefault();
@@ -55,14 +53,17 @@ public class OrderService(
         }
         else if (address is not null)
         {
-            shipName = address.FullName;
-            line1 = address.Line1;
-            city = address.City;
-            pin = address.Pincode;
-            state = string.IsNullOrWhiteSpace(address.State) ? "Karnataka" : address.State;
+            shipName = address.FullName?.Trim() ?? "";
+            line1 = address.Line1?.Trim() ?? "";
+            city = address.City?.Trim() ?? "";
+            pin = address.Pincode?.Trim() ?? "";
+            state = address.State?.Trim() ?? "";
         }
         else
-            throw new InvalidOperationException("Delivery address is required.");
+        {
+            // Address is optional: the customer can share it on WhatsApp instead.
+            shipName = line1 = city = pin = state = "";
+        }
 
         var items = new List<OrderItem>();
         decimal total = 0;
@@ -108,7 +109,6 @@ public class OrderService(
             await db.Entry(order).Collection(o => o.Items).LoadAsync();
         }
 
-        await messaging.SendOrderWhatsAppAsync(order, tenant);
         return order;
     }
 }

@@ -34,7 +34,8 @@ public class StorefrontController(
             t.StoryTitle,
             t.StoryBody,
             t.LogoUrl,
-            t.HeroVideoUrl
+            t.HeroVideoUrl,
+            whatsapp_number = t.WhatsAppNumber
         });
     }
 

@@ -89,6 +89,9 @@ export const api = {
   adminToggleProduct: (id) =>
     request(`/api/admin/products/${id}/availability`, { method: 'PATCH', admin: true }),
   adminOrders: () => request('/api/admin/orders', { admin: true }),
+  adminSettings: () => request('/api/admin/settings', { admin: true }),
+  adminSaveSettings: (settings) =>
+    request('/api/admin/settings', { method: 'PUT', body: settings, admin: true }),
   adminPatchOrder: (id, status) =>
     request(`/api/admin/orders/${id}`, { method: 'PATCH', body: { status }, admin: true }),
 }
