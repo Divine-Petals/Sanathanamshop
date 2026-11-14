@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -85,7 +85,26 @@ export function OrderDetailPage() {
   const brand = useBrand()
   const navigate = useNavigate()
   const [order, setOrder] = useState(null)
+  const [shopNumber, setShopNumber] = useState(brand.whatsapp_number ?? '')
+  const autoOpened = useRef(false)
   const justPlaced = location.state?.justPlaced
+
+  // Read the number fresh so a change saved in Admin → Inventory applies immediately.
+  useEffect(() => {
+    api.storefront()
+      .then((s) => setShopNumber(s.whatsapp_number ?? ''))
+      .catch(() => {})
+  }, [])
+
+  const waLink = order ? orderWhatsAppLink(order, brand.name, shopNumber) : null
+
+  // Right after checkout, open the shop's WhatsApp chat with the order filled in.
+  useEffect(() => {
+    if (!justPlaced || !waLink || autoOpened.current) return
+    autoOpened.current = true
+    navigate(location.pathname, { replace: true, state: { justPlaced: false, sentToWhatsApp: true } })
+    window.location.assign(waLink)
+  }, [justPlaced, waLink, navigate, location.pathname])
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) navigate('/login', { replace: true })
@@ -107,19 +126,25 @@ export function OrderDetailPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
-      {justPlaced && (
+      {(justPlaced || location.state?.sentToWhatsApp) && (
         <p className="mb-4 text-sm bg-earth-50 border border-earth-100 rounded-xl px-3 py-2">
           Order placed. Send it to {brand.name} on WhatsApp to confirm.
         </p>
       )}
-      <a
-        href={orderWhatsAppLink(order, brand)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center w-full min-h-[48px] mb-6 bg-[#25D366] text-white font-bold rounded-xl"
-      >
-        Send order on WhatsApp
-      </a>
+      {waLink ? (
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center w-full min-h-[48px] mb-6 bg-[#25D366] text-white font-bold rounded-xl"
+        >
+          Send order on WhatsApp
+        </a>
+      ) : (
+        <p className="mb-6 text-sm text-earth-500">
+          {brand.name} will contact you on {order.phone} to confirm this order.
+        </p>
+      )}
       <h1 className="font-serif text-2xl font-bold text-deep-green">{order.order_number}</h1>
       <p className="text-xs uppercase text-saffron-600 mt-1">{order.status}</p>
       <div className="mt-6 space-y-2">

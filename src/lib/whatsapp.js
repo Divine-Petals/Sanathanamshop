@@ -1,5 +1,4 @@
 // The shop's WhatsApp number comes from the store settings (Admin → Inventory).
-// Without one, wa.me lets the customer pick a chat.
 
 export function orderWhatsAppText(order, brandName) {
   const lines = [
@@ -19,7 +18,14 @@ export function orderWhatsAppText(order, brandName) {
   return lines.join('\n')
 }
 
-export function orderWhatsAppLink(order, brand) {
-  const number = (brand.whatsapp_number ?? '').replace(/\D/g, '')
-  return `https://wa.me/${number}?text=${encodeURIComponent(orderWhatsAppText(order, brand.name))}`
+export function normalizeWhatsAppNumber(value) {
+  return (value ?? '').replace(/\D/g, '')
+}
+
+// Opens a chat with the shop's number. Returns null when no number is configured,
+// so the customer is never sent to WhatsApp's contact picker.
+export function orderWhatsAppLink(order, brandName, shopNumber) {
+  const number = normalizeWhatsAppNumber(shopNumber)
+  if (!number) return null
+  return `https://wa.me/${number}?text=${encodeURIComponent(orderWhatsAppText(order, brandName))}`
 }
