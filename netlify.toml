@@ -3,15 +3,23 @@
 # command and environment variables (see netlify/README.md).
 
 [build]
-  command = "npm run build:sanathanam"
+  command = "npm run build:divine-petals"
   publish = "dist"
   functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "20"
   SECRETS_SCAN_OMIT_KEYS = "VITE_API_URL"
+  # Baked into the JS bundle at build time. Override per-site in Netlify UI if needed.
   VITE_API_URL = "https://sanathanam-api-607793476151.asia-south1.run.app"
-  VITE_TENANT = "sanathanam"
+  VITE_URL_DIVINE_PETALS = "https://www.divinepetals.in"
+  VITE_URL_DIVINE_JEWELS = "https://jewels.sanathanamshop.in"
+  VITE_URL_SANATHANAM = "https://www.sanathanamshop.in"
+
+# ── Per-site build commands (set in Netlify UI → Site settings → Build) ──
+# Divine Petals:  npm run build:divine-petals   + VITE_TENANT=divine-petals  + domain www.divinepetals.in
+# Divine Jewels:  npm run build:divine-jewels   + VITE_TENANT=divine-jewels  + domain jewels.sanathanamshop.in
+# Sanathanam:     npm run build:sanathanam      + VITE_TENANT=sanathanam     + domain www.sanathanamshop.in
 
 # SPA fallback — React Router client routes
 [[redirects]]

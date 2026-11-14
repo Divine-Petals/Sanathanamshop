@@ -3,7 +3,7 @@ const PROD_API = 'https://sanathanam-api-607793476151.asia-south1.run.app'
 const API_URL =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? PROD_API : 'http://localhost:5214')
-const STOREFRONT_TENANT = import.meta.env.VITE_TENANT ?? 'sanathanam'
+const STOREFRONT_TENANT = import.meta.env.VITE_TENANT ?? 'divine-petals'
 
 
 const CUSTOMER_TOKEN = 'sanathanam.customer.token'
@@ -15,7 +15,7 @@ export function getStorefrontTenant() {
 }
 
 export function getAdminTenant() {
-  return localStorage.getItem(ADMIN_SITE_KEY) ?? 'sanathanam'
+  return localStorage.getItem(ADMIN_SITE_KEY) ?? 'divine-petals'
 }
 
 export function setAdminTenant(slug) {
