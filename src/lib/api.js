@@ -42,17 +42,16 @@ export function setAdminToken(token) {
 
 async function request(path, { method = 'GET', body, admin = false, auth = true, tenant } = {}) {
   const tenantHeader = tenant ?? (admin ? getAdminTenant() : STOREFRONT_TENANT)
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-Tenant': tenantHeader,
-  }
+  const isForm = body instanceof FormData
+  const headers = { 'X-Tenant': tenantHeader }
+  if (!isForm) headers['Content-Type'] = 'application/json'
   const token = admin ? getAdminToken() : getCustomerToken()
   if (auth && token) headers.Authorization = `Bearer ${token}`
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: isForm ? body : body ? JSON.stringify(body) : undefined,
   })
 
   if (res.status === 204) return null
@@ -92,6 +91,11 @@ export const api = {
   adminSettings: () => request('/api/admin/settings', { admin: true }),
   adminSaveSettings: (settings) =>
     request('/api/admin/settings', { method: 'PUT', body: settings, admin: true }),
+  adminUpload: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request('/api/admin/uploads', { method: 'POST', body: form, admin: true })
+  },
   adminPatchOrder: (id, status) =>
     request(`/api/admin/orders/${id}`, { method: 'PATCH', body: { status }, admin: true }),
 }

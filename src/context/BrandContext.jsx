@@ -62,7 +62,15 @@ export function BrandProvider({ children }) {
   const [brand, setBrand] = useState(FALLBACK)
 
   useEffect(() => {
-    api.storefront().then(setBrand).catch(() => setBrand(FALLBACKS[tenant] ?? FALLBACKS['divine-petals']))
+    // Fields left empty in the database (Admin → Inventory → Store branding) keep the built-in default.
+    api.storefront()
+      .then((data) => {
+        const filled = Object.fromEntries(
+          Object.entries(data ?? {}).filter(([, v]) => v !== null && v !== undefined && v !== ''),
+        )
+        setBrand({ ...FALLBACK, ...filled })
+      })
+      .catch(() => setBrand(FALLBACK))
   }, [])
 
   useEffect(() => {

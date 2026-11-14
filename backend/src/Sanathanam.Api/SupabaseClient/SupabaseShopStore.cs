@@ -177,13 +177,33 @@ public class SupabaseShopStore(Supabase.Client client)
         }).ToList();
     }
 
-    public async Task UpdateTenantWhatsAppAsync(Guid tenantId, string number)
+    public async Task UpdateTenantSettingsAsync(Tenant t)
     {
         await client.From<TenantRow>()
-            .Filter("id", Operator.Equals, tenantId.ToString())
-            .Set(x => x.WhatsAppNumber, number)
+            .Filter("id", Operator.Equals, t.Id.ToString())
+            .Set(x => x.WhatsAppNumber, t.WhatsAppNumber)
+            .Set(x => x.Tagline, t.Tagline)
+            .Set(x => x.HeroEyebrow, t.HeroEyebrow)
+            .Set(x => x.HeroTitle, t.HeroTitle)
+            .Set(x => x.HeroHighlight, t.HeroHighlight)
+            .Set(x => x.HeroBody, t.HeroBody)
+            .Set(x => x.StoryTitle, t.StoryTitle)
+            .Set(x => x.StoryBody, t.StoryBody)
+            .Set(x => x.LogoUrl, t.LogoUrl)
+            .Set(x => x.HeroVideoUrl, t.HeroVideoUrl)
             .Update();
     }
+
+    public async Task<string> UploadPublicFileAsync(string path, byte[] data, string contentType)
+    {
+        var bucket = client.Storage.From(StorageBucket);
+        await bucket.Upload(data, path, new Supabase.Storage.FileOptions { ContentType = contentType, Upsert = false });
+        return bucket.GetPublicUrl(path);
+    }
+
+    /// <summary>Public Storage bucket for shop assets (env SUPABASE_STORAGE_BUCKET).</summary>
+    public static string StorageBucket =>
+        Environment.GetEnvironmentVariable("SUPABASE_STORAGE_BUCKET") is { Length: > 0 } b ? b : "divinepetalsassessts";
 
     public async Task<object?> PatchOrderStatusAsync(Guid id, OrderStatus status)
     {
