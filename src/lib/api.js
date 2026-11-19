@@ -57,7 +57,13 @@ async function request(path, { method = 'GET', body, admin = false, auth = true,
   if (res.status === 204) return null
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    const err = new Error(data.message ?? `Request failed (${res.status})`)
+    const fallback =
+      res.status === 401 || res.status === 403
+        ? 'Your session has expired. Please log in again.'
+        : res.status === 413
+          ? 'The file or request is too large.'
+          : `Request failed (${res.status})`
+    const err = new Error(data.message ?? data.title ?? fallback)
     err.status = res.status
     throw err
   }

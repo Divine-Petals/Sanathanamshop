@@ -27,7 +27,23 @@ catch (Exception ex)
 }
 
 builder.Services.AddControllers()
-    .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower);
+    .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower)
+    .ConfigureApiBehaviorOptions(o =>
+    {
+        // The frontend shows `message`; the default validation response only has `title` + `errors`.
+        o.InvalidModelStateResponseFactory = ctx =>
+        {
+            var details = ctx.ModelState
+                .Where(kv => kv.Value?.Errors.Count > 0)
+                .SelectMany(kv => kv.Value!.Errors.Select(e => e.ErrorMessage))
+                .Where(m => !string.IsNullOrWhiteSpace(m));
+            var message = string.Join(" ", details);
+            return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(new
+            {
+                message = string.IsNullOrWhiteSpace(message) ? "Invalid request." : message
+            });
+        };
+    });
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<TenantContext>();

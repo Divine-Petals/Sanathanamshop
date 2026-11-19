@@ -13,7 +13,7 @@ public record AdminLoginRequest(string Email, string Password);
 public record ProductWrite(
     string Name,
     decimal PriceInInr,
-    string Category,
+    string? Category,
     string? Subcategory,
     string? Description,
     string[]? Ingredients,
@@ -66,6 +66,8 @@ public class AdminController(
     [HttpPost("products")]
     public async Task<IActionResult> Create([FromBody] ProductWrite body)
     {
+        if (string.IsNullOrWhiteSpace(body.Name))
+            return BadRequest(new { message = "Enter a product name." });
         var tenant = tenantContext.Current ?? throw new InvalidOperationException("Unknown store.");
         if (UseSupabase)
         {
@@ -79,7 +81,7 @@ public class AdminController(
             Name = body.Name,
             PriceInInr = body.PriceInInr,
             Domain = body.Domain ?? "",
-            Category = body.Category,
+            Category = body.Category ?? "",
             Subcategory = body.Subcategory ?? "",
             Description = body.Description ?? "",
             Ingredients = body.Ingredients ?? [],
@@ -108,7 +110,7 @@ public class AdminController(
         product.Name = body.Name;
         product.PriceInInr = body.PriceInInr;
         product.Domain = body.Domain ?? "";
-        product.Category = body.Category;
+        product.Category = body.Category ?? "";
         product.Subcategory = body.Subcategory ?? "";
         product.Description = body.Description ?? "";
         product.Ingredients = body.Ingredients ?? [];
