@@ -77,16 +77,28 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
 
-  const handleImageUpload = (e) => {
+  const [uploading, setUploading] = useState(false)
+
+  // Upload to Supabase Storage and keep only the URL; a base64 data URL in the
+  // product row bloats every product listing the storefront downloads.
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0]
+    e.target.value = ''
     if (!file || !file.type.startsWith('image/')) return
-    const reader = new FileReader()
-    reader.onloadend = () => set('image_url', reader.result)
-    reader.readAsDataURL(file)
+    setUploading(true)
+    try {
+      const { url } = await api.adminUpload(file)
+      set('image_url', url)
+    } catch (err) {
+      alert(`Image upload failed: ${err.message}`)
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (uploading) return
     if (!form.name.trim() || !form.price_in_inr) return
     onSubmit(formToProduct(form))
   }
@@ -172,18 +184,20 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
           <label className="block text-xs font-semibold text-earth-600 mb-1" htmlFor="prod-category">
             Category
           </label>
-          <select
+          {/* Free text with suggestions, so a product can be added even before any category exists. */}
+          <input
             id="prod-category"
+            list="prod-category-options"
             value={form.category}
             onChange={(e) => set('category', e.target.value)}
+            placeholder={categoryOptions.length ? 'Pick or type a category' : 'e.g. Soaps'}
             className="w-full min-h-[44px] px-3 py-2 border border-earth-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green bg-white"
-          >
+          />
+          <datalist id="prod-category-options">
             {categoryOptions.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
+              <option key={cat} value={cat} />
             ))}
-          </select>
+          </datalist>
         </div>
 
         {/* Subcategory */}
@@ -191,19 +205,19 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
           <label className="block text-xs font-semibold text-earth-600 mb-1" htmlFor="prod-subcategory">
             Subcategory
           </label>
-          <select
+          <input
             id="prod-subcategory"
+            list="prod-subcategory-options"
             value={form.subcategory}
             onChange={(e) => set('subcategory', e.target.value)}
+            placeholder="Optional"
             className="w-full min-h-[44px] px-3 py-2 border border-earth-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green bg-white"
-          >
-            {subcategoryOptions.length === 0 && <option value="">—</option>}
+          />
+          <datalist id="prod-subcategory-options">
             {subcategoryOptions.map((sub) => (
-              <option key={sub} value={sub}>
-                {sub}
-              </option>
+              <option key={sub} value={sub} />
             ))}
-          </select>
+          </datalist>
         </div>
 
         {/* Image upload */}
@@ -223,9 +237,10 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
+              disabled={uploading}
               className="flex-1 min-h-[44px] border-2 border-dashed border-earth-200 rounded-xl text-xs text-earth-500 hover:border-saffron-400 hover:text-saffron-600 transition-colors flex items-center justify-center gap-2"
             >
-              📷 {form.image_url ? 'Change Image' : 'Upload from Gallery'}
+              📷 {uploading ? 'Uploading…' : form.image_url ? 'Change Image' : 'Upload from Gallery'}
             </button>
             {form.image_url && (
               <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-earth-100">

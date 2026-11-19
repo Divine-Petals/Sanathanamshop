@@ -73,7 +73,7 @@ public class SupabaseShopStore(Supabase.Client client)
             Name = body.Name,
             PriceInInr = body.PriceInInr,
             Domain = body.Domain ?? "",
-            Category = body.Category,
+            Category = body.Category ?? "",
             Subcategory = body.Subcategory ?? "",
             Description = body.Description ?? "",
             Ingredients = ProductRow.IngredientsFrom(body.Ingredients),
@@ -102,7 +102,7 @@ public class SupabaseShopStore(Supabase.Client client)
             .Set(x => x.Name!, body.Name)
             .Set(x => x.PriceInInr, body.PriceInInr)
             .Set(x => x.Domain!, body.Domain ?? "")
-            .Set(x => x.Category!, body.Category)
+            .Set(x => x.Category!, body.Category ?? "")
             .Set(x => x.Subcategory!, body.Subcategory ?? "")
             .Set(x => x.Description!, body.Description ?? "")
             .Set(x => x.Ingredients, ProductRow.IngredientsFrom(body.Ingredients))
@@ -372,7 +372,7 @@ public class SupabaseShopStore(Supabase.Client client)
 public record ProductWriteDto(
     string Name,
     decimal PriceInInr,
-    string Category,
+    string? Category,
     string? Subcategory,
     string? Description,
     string[]? Ingredients,
