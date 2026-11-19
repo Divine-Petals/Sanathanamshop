@@ -4,9 +4,11 @@ import { useAdminSite } from '../context/AdminSiteContext'
 import { api } from '../lib/api'
 
 import { PRODUCT_DOMAINS, normalizeProductDomain } from '../lib/domains'
+import Price from '../components/products/Price'
 
 const EMPTY_FORM = {
   name: '',
+  mrp: '',
   price_in_inr: '',
   domain: PRODUCT_DOMAINS[0],
   category: '',
@@ -20,6 +22,7 @@ const EMPTY_FORM = {
 function productToForm(product) {
   return {
     name: product.name ?? '',
+    mrp: Number(product.mrp) > 0 ? product.mrp : '',
     price_in_inr: product.price_in_inr ?? '',
     domain: normalizeProductDomain(product.domain) || PRODUCT_DOMAINS[0],
     category: product.category ?? '',
@@ -36,6 +39,7 @@ function productToForm(product) {
 function formToProduct(form) {
   return {
     ...form,
+    mrp: form.mrp === '' ? 0 : Number(form.mrp),
     price_in_inr: Number(form.price_in_inr),
     ingredients: form.ingredients
       .split(',')
@@ -96,10 +100,16 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
     }
   }
 
+  const mrpNum = Number(form.mrp) || 0
+  const offerNum = Number(form.price_in_inr) || 0
+  const priceError = mrpNum > 0 && offerNum > mrpNum ? 'Offer price can’t be more than the MRP.' : ''
+  const discount = mrpNum > 0 && offerNum > 0 && offerNum < mrpNum ? Math.round((1 - offerNum / mrpNum) * 100) : 0
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (uploading) return
     if (!form.name.trim() || !form.price_in_inr) return
+    if (priceError) return
     onSubmit(formToProduct(form))
   }
 
@@ -142,22 +152,58 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
           />
         </div>
 
-        {/* Price */}
-        <div>
-          <label className="block text-xs font-semibold text-earth-600 mb-1" htmlFor="prod-price">
-            Price (₹) *
-          </label>
-          <input
-            id="prod-price"
-            required
-            type="number"
-            min={1}
-            max={9999}
-            value={form.price_in_inr}
-            onChange={(e) => set('price_in_inr', e.target.value)}
-            placeholder="249"
-            className="w-full min-h-[44px] px-3 py-2 border border-earth-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green"
-          />
+        {/* MRP + offer price */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-earth-600 mb-1" htmlFor="prod-mrp">
+              MRP (₹)
+            </label>
+            <input
+              id="prod-mrp"
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.mrp}
+              onChange={(e) => set('mrp', e.target.value)}
+              placeholder="299"
+              className="w-full min-h-[44px] px-3 py-2 border border-earth-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green"
+            />
+          </div>
+          <div>
+            <div className="flex items-baseline justify-between mb-1">
+              <label className="block text-xs font-semibold text-earth-600" htmlFor="prod-price">
+                Offer price (₹) *
+              </label>
+              <button
+                type="button"
+                onClick={() => set('price_in_inr', form.mrp)}
+                disabled={!mrpNum}
+                className="text-[11px] font-semibold text-saffron-600 hover:underline disabled:opacity-40 disabled:no-underline"
+              >
+                = MRP
+              </button>
+            </div>
+            <input
+              id="prod-price"
+              required
+              type="number"
+              min={1}
+              step="0.01"
+              value={form.price_in_inr}
+              onChange={(e) => set('price_in_inr', e.target.value)}
+              placeholder="249"
+              aria-invalid={!!priceError}
+              className={`w-full min-h-[44px] px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green ${
+                priceError ? 'border-red-400' : 'border-earth-200'
+              }`}
+            />
+          </div>
+          <p className={`col-span-2 text-[11px] -mt-1 ${priceError ? 'text-red-600' : 'text-earth-500'}`}>
+            {priceError ||
+              (discount
+                ? `Customers see ₹${offerNum} with MRP ₹${mrpNum} struck out (${discount}% off).`
+                : 'Customers pay the offer price. Leave MRP empty to show only one price.')}
+          </p>
         </div>
 
         {/* Domain */}
@@ -340,230 +386,36 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
   )
 }
 
-const TEXT_FIELDS = [
-  { key: 'tagline', label: 'Tagline', placeholder: 'Purity Enhanced' },
-  { key: 'hero_eyebrow', label: 'Hero eyebrow', placeholder: 'Soaps · Shampoos · Perfumes' },
-  { key: 'hero_title', label: 'Hero title', placeholder: 'Naturals That Tell' },
-  { key: 'hero_highlight', label: 'Hero highlight', placeholder: "India's Story" },
-  { key: 'hero_body', label: 'Hero text', multiline: true },
-  { key: 'story_title', label: 'Story title' },
-  { key: 'story_body', label: 'Story text', multiline: true },
-]
-
-const EMPTY_SETTINGS = {
-  whatsapp_number: '',
-  logo_url: '',
-  hero_video_url: '',
-  ...Object.fromEntries(TEXT_FIELDS.map((f) => [f.key, ''])),
-}
-
-const inputClass = 'w-full min-h-[44px] px-3 border border-earth-200 rounded-xl text-sm'
-
-function MediaField({ label, hint, value, accept, kind, onChange }) {
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState('')
-  const fileRef = useRef(null)
-
-  const upload = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setUploading(true)
-    setError('')
-    try {
-      const { url } = await api.adminUpload(file)
-      onChange(url)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-earth-600 mb-1">{label}</label>
-      <p className="text-xs text-earth-500 mb-2">{hint}</p>
-      <div className="flex gap-3 items-start">
-        <div className="h-16 w-16 shrink-0 rounded-xl border border-earth-100 bg-earth-50 overflow-hidden flex items-center justify-center">
-          {value ? (
-            kind === 'video' ? (
-              <video src={value} muted playsInline className="h-full w-full object-cover" />
-            ) : (
-              <img src={value} alt="" className="h-full w-full object-cover" />
-            )
-          ) : (
-            <span className="text-[10px] text-earth-400">Default</span>
-          )}
-        </div>
-        <div className="flex-1 min-w-0 space-y-2">
-          <input
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="https://… (empty = default)"
-            className={inputClass}
-          />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="min-h-[36px] px-3 border border-earth-200 rounded-xl text-xs font-semibold text-deep-green disabled:opacity-50"
-            >
-              {uploading ? 'Uploading…' : 'Upload file'}
-            </button>
-            {value && (
-              <button type="button" onClick={() => onChange('')} className="min-h-[36px] px-3 text-xs text-earth-500">
-                Clear
-              </button>
-            )}
-          </div>
-          <input ref={fileRef} type="file" accept={accept} onChange={upload} className="hidden" />
-          {error && <p className="text-xs text-red-600">{error}</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StoreSettings({ siteSlug, siteName }) {
-  const [settings, setSettings] = useState(EMPTY_SETTINGS)
-  const [open, setOpen] = useState(false)
-  const [status, setStatus] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    setStatus('')
-    setSettings(EMPTY_SETTINGS)
-    api.adminSettings()
-      .then((s) => setSettings({ ...EMPTY_SETTINGS, ...Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v ?? ''])) }))
-      .catch((err) => setStatus(err.message))
-  }, [siteSlug])
-
-  const set = (key, value) => {
-    setStatus('')
-    setSettings((prev) => ({ ...prev, [key]: value }))
-  }
-
-  const save = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    setStatus('')
-    try {
-      const saved = await api.adminSaveSettings(settings)
-      setSettings({ ...EMPTY_SETTINGS, ...Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, v ?? ''])) })
-      setStatus('Saved')
-    } catch (err) {
-      setStatus(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <form onSubmit={save} className="mb-6 bg-white border border-earth-100 rounded-2xl p-4 space-y-5">
-      <div>
-        <label htmlFor="wa-number" className="block text-sm font-semibold text-deep-green">
-          Order WhatsApp number
-        </label>
-        <p className="text-xs text-earth-500 mt-1 mb-2">
-          Customers send their order to this number after checkout. Include the country code, e.g. 919876543210.
-        </p>
-        <input
-          id="wa-number"
-          type="tel"
-          inputMode="numeric"
-          value={settings.whatsapp_number}
-          onChange={(e) => set('whatsapp_number', e.target.value)}
-          placeholder="919876543210"
-          className={inputClass}
-        />
-      </div>
-
-      <div className="border-t border-earth-100 pt-4">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="w-full flex items-center justify-between text-sm font-semibold text-deep-green"
-        >
-          <span>Store branding — logo, hero video and text for {siteName}</span>
-          <span className="text-earth-400">{open ? '−' : '+'}</span>
-        </button>
-        {open && (
-          <div className="mt-4 space-y-5">
-            <p className="text-xs text-earth-500">
-              Uploaded files go to Supabase Storage. Leave a field empty to use the built-in default.
-            </p>
-            <MediaField
-              label="Logo"
-              hint="Square image, at least 256×256 px. Shown in the header, footer and hero."
-              value={settings.logo_url}
-              accept="image/jpeg,image/png,image/webp,image/svg+xml"
-              kind="image"
-              onChange={(v) => set('logo_url', v)}
-            />
-            <MediaField
-              label="Hero video"
-              hint="MP4 or WebM, under 30 MB. Plays in the circle on the home page; the logo is shown when empty."
-              value={settings.hero_video_url}
-              accept="video/mp4,video/webm"
-              kind="video"
-              onChange={(v) => set('hero_video_url', v)}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              {TEXT_FIELDS.map((f) => (
-                <div key={f.key} className={f.multiline ? 'sm:col-span-2' : ''}>
-                  <label htmlFor={`brand-${f.key}`} className="block text-xs font-semibold text-earth-600 mb-1">
-                    {f.label}
-                  </label>
-                  {f.multiline ? (
-                    <textarea
-                      id={`brand-${f.key}`}
-                      rows={3}
-                      value={settings[f.key]}
-                      onChange={(e) => set(f.key, e.target.value)}
-                      placeholder="Empty = default"
-                      className="w-full px-3 py-2 border border-earth-200 rounded-xl text-sm"
-                    />
-                  ) : (
-                    <input
-                      id={`brand-${f.key}`}
-                      value={settings[f.key]}
-                      onChange={(e) => set(f.key, e.target.value)}
-                      placeholder={f.placeholder ? `Default: ${f.placeholder}` : 'Empty = default'}
-                      className={inputClass}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="min-h-[44px] px-5 bg-deep-green text-white font-semibold rounded-xl text-sm disabled:opacity-50"
-        >
-          {saving ? 'Saving…' : 'Save store settings'}
-        </button>
-        {status && <p className={`text-xs ${status === 'Saved' ? 'text-green-700' : 'text-red-600'}`}>{status}</p>}
-      </div>
-    </form>
-  )
-}
-
 export default function AdminPage() {
-  const { products, categories, categoryTree, loading, error, addProduct, updateProduct, removeProduct, toggleAvailability } =
+  const { products, categories, categoryTree, loading, error, addProduct, updateProduct, removeProduct, toggleAvailability, copyMrpToOffer } =
     useAdminInventory()
+  const [copying, setCopying] = useState(false)
+  const [copyNotice, setCopyNotice] = useState('')
+  const withMrp = products.filter((p) => Number(p.mrp) > 0 && Number(p.mrp) !== Number(p.price_in_inr)).length
+
+  const handleCopyMrp = async () => {
+    if (!withMrp) {
+      setCopyNotice('Every product with an MRP already sells at MRP.')
+      return
+    }
+    if (!window.confirm(`Set the offer price to the MRP for ${withMrp} product${withMrp !== 1 ? 's' : ''} in ${site.name}? This removes their discounts.`)) return
+    setCopying(true)
+    setCopyNotice('')
+    try {
+      const updated = await copyMrpToOffer()
+      setCopyNotice(`Offer price set to MRP for ${updated} product${updated !== 1 ? 's' : ''}.`)
+    } catch (err) {
+      setCopyNotice(`Couldn't copy MRP: ${err.message}`)
+    } finally {
+      setCopying(false)
+    }
+  }
   const { site } = useAdminSite()
   const [formMode, setFormMode] = useState(null)
 
   useEffect(() => {
     setFormMode(null)
+    setCopyNotice('')
   }, [site.slug])
 
   const editingProduct =
@@ -610,7 +462,17 @@ export default function AdminPage() {
             {loading ? 'Loading…' : `${products.length} product${products.length !== 1 ? 's' : ''} on this site`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {!formMode && products.length > 0 && (
+            <button
+              type="button"
+              onClick={handleCopyMrp}
+              disabled={copying}
+              className="min-h-[44px] px-4 border border-earth-200 rounded-xl text-sm font-semibold text-deep-green hover:bg-earth-50 disabled:opacity-50"
+            >
+              {copying ? 'Copying…' : 'Copy MRP → offer price'}
+            </button>
+          )}
           {!formMode && (
             <button
               onClick={openAdd}
@@ -623,8 +485,9 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <StoreSettings siteSlug={site.slug} siteName={site.name} />
-
+      {copyNotice && (
+        <p className="mb-4 text-sm text-earth-700 bg-earth-50 border border-earth-100 rounded-xl px-3 py-2">{copyNotice}</p>
+      )}
       {error && (
         <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>
       )}
@@ -657,7 +520,7 @@ export default function AdminPage() {
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Domain</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Category</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Subcategory</th>
-                <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Price (₹)</th>
+                <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Price</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Ingredients</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Status</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Actions</th>
@@ -690,7 +553,9 @@ export default function AdminPage() {
                   <td className="px-4 py-3 text-earth-600 whitespace-nowrap">{product.domain || '—'}</td>
                   <td className="px-4 py-3 text-earth-600 whitespace-nowrap">{product.category}</td>
                   <td className="px-4 py-3 text-earth-600 whitespace-nowrap">{product.subcategory || '—'}</td>
-                  <td className="px-4 py-3 font-semibold text-deep-green whitespace-nowrap">₹{product.price_in_inr}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <Price product={product} className="font-semibold text-deep-green" />
+                  </td>
                   <td className="px-4 py-3 max-w-[200px]">
                     <div className="flex flex-wrap gap-1">
                       {(product.ingredients ?? []).slice(0, 3).map((ing) => (
@@ -774,7 +639,7 @@ export default function AdminPage() {
                 <p className="text-earth-500 text-xs">
                   {[product.domain, product.category, product.subcategory].filter(Boolean).join(' · ')}
                 </p>
-                <p className="text-saffron-600 font-bold text-sm mt-0.5">₹{product.price_in_inr}</p>
+                <p className="mt-0.5"><Price product={product} className="text-saffron-600 font-bold text-sm" /></p>
                 {product.bestseller && (
                   <p className="text-[10px] text-saffron-500 font-semibold mt-0.5">★ Bestseller</p>
                 )}

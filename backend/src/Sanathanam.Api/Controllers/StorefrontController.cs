@@ -58,12 +58,14 @@ public class StorefrontController(
         }
 
         var products = await db.Products
+            .Where(p => p.ProductTenants.Any(pt => pt.TenantId == t.Id))
             .OrderBy(p => p.Name)
             .Select(p => new
             {
                 id = p.Id,
                 name = p.Name,
                 price_in_inr = p.PriceInInr,
+                mrp = p.Mrp,
                 domain = p.Domain,
                 category = p.Category,
                 subcategory = p.Subcategory,
@@ -95,15 +97,20 @@ public class StorefrontController(
             }
         }
 
-        var names = await db.Categories
-            .OrderBy(c => c.Name)
-            .Select(c => c.Name)
+        var storeProducts = db.Products.Where(p => p.ProductTenants.Any(pt => pt.TenantId == t.Id));
+        var names = (await db.Categories
+                .Where(c => c.TenantId == t.Id)
+                .Select(c => c.Name)
+                .ToListAsync())
+            .Concat(await storeProducts.Where(p => p.Category != "").Select(p => p.Category).ToListAsync())
             .Distinct()
-            .ToListAsync();
+            .OrderBy(n => n)
+            .ToList();
         var subs = await db.Subcategories
+            .Where(s => s.TenantId == t.Id)
             .OrderBy(s => s.Name)
             .ToListAsync();
-        var fromProducts = await db.Products
+        var fromProducts = await storeProducts
             .Where(p => p.Subcategory != "")
             .Select(p => new { p.Category, p.Subcategory })
             .Distinct()
@@ -117,6 +124,27 @@ public class StorefrontController(
             return new { name, subcategories };
         }));
     }
+
+    /// <summary>All stores, for the storefront picker and the admin console. No X-Tenant needed.</summary>
+    [HttpGet("stores")]
+    public async Task<IActionResult> Stores()
+    {
+        List<Domain.Tenant> tenants;
+        if (shop is not null)
+            tenants = await shop.ListTenantsAsync();
+        else
+            tenants = await db.Tenants.OrderBy(x => x.Name).ToListAsync();
+        return Ok(tenants.Select(StoreSummary));
+    }
+
+    public static object StoreSummary(Domain.Tenant t) => new
+    {
+        slug = t.Slug,
+        name = t.Name,
+        tagline = t.Tagline,
+        theme_key = t.ThemeKey,
+        logo_url = t.LogoUrl
+    };
 
     [HttpGet("health")]
     public IActionResult Health() => Ok(new { ok = true });

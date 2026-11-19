@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
+import { useStorePath } from '../../context/StoreContext'
 import { useBrand } from '../../context/BrandContext'
 import { getThemeMeta } from '../../lib/theme'
 
 export default function Footer() {
+  const storePath = useStorePath()
   const brand = useBrand()
   const t = getThemeMeta(brand)
 
@@ -22,11 +24,8 @@ export default function Footer() {
           </div>
           <div>
             <p className="font-semibold text-sm mb-3 opacity-95">Shop</p>
-            <Link to="/products" className="block text-xs opacity-70 hover:opacity-100 transition-opacity mb-2">
+            <Link to={storePath('/products')} className="block text-xs opacity-70 hover:opacity-100 transition-opacity mb-2">
               {t.exploreLabel}
-            </Link>
-            <Link to="/brands" className="block text-xs opacity-70 hover:opacity-100 transition-opacity">
-              Our brands
             </Link>
           </div>
         </div>

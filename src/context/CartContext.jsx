@@ -1,10 +1,45 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useStore } from './StoreContext'
 
 const CartContext = createContext(null)
+const CART_KEY = 'sanathanam.cart'
 
+function readCart() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]')
+    return Array.isArray(saved) ? saved.filter((i) => i?.id && i.qty > 0) : []
+  } catch {
+    return []
+  }
+}
+
+/** Splits cart lines by store: [{ store: { slug, name }, items, total }]. */
+export function groupByStore(items) {
+  const groups = new Map()
+  for (const item of items) {
+    const key = item.store?.slug ?? ''
+    if (!groups.has(key)) groups.set(key, { store: item.store ?? null, items: [], total: 0 })
+    const g = groups.get(key)
+    g.items.push(item)
+    g.total += item.price_in_inr * item.qty
+  }
+  return [...groups.values()]
+}
+
+// One cart shared by every store; each line remembers which store it came from,
+// so checkout can place one order per store.
 export function CartProvider({ children }) {
-  const [cartItems, setCartItems] = useState([])
+  const { store } = useStore()
+  const [cartItems, setCartItems] = useState(readCart)
   const [isCartOpen, setIsCartOpen] = useState(false)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(cartItems))
+    } catch {
+      /* private mode or full storage: the cart still works for this visit */
+    }
+  }, [cartItems])
 
   const addToCart = (product) => {
     setCartItems((prev) => {
@@ -14,7 +49,8 @@ export function CartProvider({ children }) {
           item.id === product.id ? { ...item, qty: item.qty + 1 } : item
         )
       }
-      return [...prev, { ...product, qty: 1 }]
+      const { id, name, price_in_inr, image_url } = product
+      return [...prev, { id, name, price_in_inr, image_url, qty: 1, store: { slug: store.slug, name: store.name } }]
     })
     setIsCartOpen(true)
   }
@@ -38,6 +74,7 @@ export function CartProvider({ children }) {
     (sum, item) => sum + item.price_in_inr * item.qty,
     0
   )
+  const storeGroups = useMemo(() => groupByStore(cartItems), [cartItems])
 
   return (
     <CartContext.Provider
@@ -51,6 +88,7 @@ export function CartProvider({ children }) {
         updateQty,
         totalItems,
         totalPrice,
+        storeGroups,
       }}
     >
       {children}

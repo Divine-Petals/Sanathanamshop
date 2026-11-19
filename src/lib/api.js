@@ -3,7 +3,9 @@ const PROD_API = 'https://sanathanam-api-607793476151.asia-south1.run.app'
 const API_URL =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? PROD_API : 'http://localhost:5214')
-const STOREFRONT_TENANT = import.meta.env.VITE_TENANT ?? 'divine-petals'
+// Default store when the URL doesn't name one. The active store is switched at runtime (StoreContext).
+export const DEFAULT_STORE = import.meta.env.VITE_TENANT ?? 'divine-petals'
+let storefrontTenant = DEFAULT_STORE
 
 
 const CUSTOMER_TOKEN = 'sanathanam.customer.token'
@@ -11,7 +13,11 @@ const ADMIN_TOKEN = 'sanathanam.admin.token'
 const ADMIN_SITE_KEY = 'sanathanam.admin.site'
 
 export function getStorefrontTenant() {
-  return STOREFRONT_TENANT
+  return storefrontTenant
+}
+
+export function setStorefrontTenant(slug) {
+  if (slug) storefrontTenant = slug
 }
 
 export function getAdminTenant() {
@@ -41,7 +47,7 @@ export function setAdminToken(token) {
 }
 
 async function request(path, { method = 'GET', body, admin = false, auth = true, tenant } = {}) {
-  const tenantHeader = tenant ?? (admin ? getAdminTenant() : STOREFRONT_TENANT)
+  const tenantHeader = tenant ?? (admin ? getAdminTenant() : storefrontTenant)
   const isForm = body instanceof FormData
   const headers = { 'X-Tenant': tenantHeader }
   if (!isForm) headers['Content-Type'] = 'application/json'
@@ -71,7 +77,8 @@ async function request(path, { method = 'GET', body, admin = false, auth = true,
 }
 
 export const api = {
-  storefront: (tenant) => request('/api/storefront', { auth: false, tenant: tenant ?? STOREFRONT_TENANT }),
+  stores: () => request('/api/stores', { auth: false }),
+  storefront: (tenant) => request('/api/storefront', { auth: false, tenant }),
   products: (tenant) => request('/api/products', { auth: false, tenant }),
   categories: (tenant) => request('/api/categories', { auth: false, tenant }),
   sendOtp: (phone) => request('/api/auth/otp/send', { method: 'POST', body: { phone }, auth: false }),
@@ -81,8 +88,9 @@ export const api = {
   updateMe: (name) => request('/api/me', { method: 'PUT', body: { name } }),
   addresses: () => request('/api/me/addresses'),
   addAddress: (address) => request('/api/me/addresses', { method: 'POST', body: address }),
-  placeOrder: (payload) => request('/api/orders', { method: 'POST', body: payload }),
+  placeOrder: (payload, tenant) => request('/api/orders', { method: 'POST', body: payload, tenant }),
   myOrders: () => request('/api/orders'),
+  adminCreateStore: (store) => request('/api/admin/stores', { method: 'POST', body: store, admin: true }),
   adminLogin: (email, password) =>
     request('/api/admin/auth/login', { method: 'POST', body: { email, password }, auth: false }),
   adminCreateProduct: (product) =>
@@ -91,6 +99,7 @@ export const api = {
     request(`/api/admin/products/${id}`, { method: 'PUT', body: product, admin: true }),
   adminDeleteProduct: (id) =>
     request(`/api/admin/products/${id}`, { method: 'DELETE', admin: true }),
+  adminCopyMrpToOffer: () => request('/api/admin/products/copy-mrp-to-offer', { method: 'POST', admin: true }),
   adminToggleProduct: (id) =>
     request(`/api/admin/products/${id}/availability`, { method: 'PATCH', admin: true }),
   adminOrders: () => request('/api/admin/orders', { admin: true }),

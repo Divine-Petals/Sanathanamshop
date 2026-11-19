@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBrand } from '../context/BrandContext'
 
@@ -12,7 +12,6 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [step, setStep] = useState('phone')
-  const [debugOtp, setDebugOtp] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -21,8 +20,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await sendOtp(phone.trim())
-      setDebugOtp(res.debug_otp ?? res.debugOtp ?? null)
+      await sendOtp(phone.trim())
       setStep('code')
     } catch (err) {
       setError(err.message)
@@ -81,11 +79,6 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleVerify} className="space-y-4">
               <p className="text-xs text-earth-500">OTP sent to {phone}</p>
-              {debugOtp && (
-                <p className="text-xs bg-earth-50 border border-earth-100 rounded-xl px-3 py-2">
-                  Dev OTP: <strong>{debugOtp}</strong>
-                </p>
-              )}
               <input
                 inputMode="numeric"
                 required
@@ -107,9 +100,6 @@ export default function LoginPage() {
               </button>
             </form>
           )}
-          <p className="text-[11px] text-earth-400 mt-4 text-center">
-            Admin? <Link to="/admin/login" className="underline">Inventory login</Link>
-          </p>
         </div>
       </div>
     </div>

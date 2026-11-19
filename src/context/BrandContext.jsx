@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { api, getStorefrontTenant } from '../lib/api'
+import { api } from '../lib/api'
+import { useStore } from './StoreContext'
 
 const BrandContext = createContext(null)
 
@@ -55,23 +56,50 @@ const FALLBACKS = {
   },
 }
 
-const tenant = import.meta.env.VITE_TENANT ?? getStorefrontTenant()
-const FALLBACK = FALLBACKS[tenant] ?? FALLBACKS['divine-petals']
+// Built-in texts for a store. A store added in the admin borrows its theme preset's look,
+// with its own name in place of the preset's texts.
+export function fallbackFor(store) {
+  if (FALLBACKS[store.slug]) return FALLBACKS[store.slug]
+  const preset = FALLBACKS[store.theme_key] ?? FALLBACKS['divine-petals']
+  return {
+    ...preset,
+    slug: store.slug,
+    name: store.name,
+    tagline: store.tagline || '',
+    theme_key: store.theme_key || preset.theme_key,
+    hero_eyebrow: store.tagline || '',
+    hero_title: store.name,
+    hero_highlight: '',
+    hero_body: '',
+    story_title: store.name,
+    story_body: '',
+    logo_url: store.logo_url || `https://placehold.co/128x128/1a3c34/ffffff?text=${encodeURIComponent(store.name[0] ?? 'S')}`,
+    hero_video_url: '',
+  }
+}
 
 export function BrandProvider({ children }) {
-  const [brand, setBrand] = useState(FALLBACK)
+  const { store } = useStore()
+  const [brand, setBrand] = useState(() => fallbackFor(store))
 
   useEffect(() => {
-    // Fields left empty in the database (Admin → Inventory → Store branding) keep the built-in default.
-    api.storefront()
+    let cancelled = false
+    const fallback = fallbackFor(store)
+    setBrand(fallback)
+    // Fields left empty in the database (Admin → Stores) keep the built-in default.
+    api.storefront(store.slug)
       .then((data) => {
+        if (cancelled) return
         const filled = Object.fromEntries(
           Object.entries(data ?? {}).filter(([, v]) => v !== null && v !== undefined && v !== ''),
         )
-        setBrand({ ...FALLBACK, ...filled })
+        setBrand({ ...fallback, ...filled })
       })
-      .catch(() => setBrand(FALLBACK))
-  }, [])
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [store.slug, store.name, store.theme_key])
 
   useEffect(() => {
     document.documentElement.dataset.theme = brand.theme_key ?? brand.slug

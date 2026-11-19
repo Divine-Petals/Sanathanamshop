@@ -8,7 +8,8 @@ function placeholderFor(name) {
 }
 
 export default function CartDrawer() {
-  const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, updateQty, totalPrice } = useCart()
+  const { cartItems, storeGroups, isCartOpen, setIsCartOpen, removeFromCart, updateQty, totalPrice } = useCart()
+  const multiStore = storeGroups.length > 1
   const brand = useBrand()
   const t = getThemeMeta(brand)
   const navigate = useNavigate()
@@ -57,7 +58,17 @@ export default function CartDrawer() {
               </p>
             </div>
           ) : (
-            cartItems.map((item) => (
+            storeGroups.map((group) => (
+              <section key={group.store?.slug ?? 'store'} className="space-y-3">
+                {multiStore && (
+                  <div className="flex justify-between items-baseline pt-1">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-earth-600">
+                      {group.store?.name ?? 'Store'}
+                    </h3>
+                    <span className="text-xs text-earth-500">₹{group.total.toFixed(2)}</span>
+                  </div>
+                )}
+            {group.items.map((item) => (
               <div key={item.id} className="flex gap-3 bg-earth-50 rounded-2xl p-3">
                 {/* Product image */}
                 <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-earth-100">
@@ -107,6 +118,8 @@ export default function CartDrawer() {
                   </svg>
                 </button>
               </div>
+            ))}
+              </section>
             ))
           )}
         </div>
@@ -118,7 +131,11 @@ export default function CartDrawer() {
               <span className="text-earth-600">Subtotal</span>
               <span className="font-bold text-deep-green">₹{totalPrice.toFixed(2)}</span>
             </div>
-            <p className="text-[10px] text-earth-400 mb-3">Free shipping above ₹499</p>
+            <p className="text-[10px] text-earth-400 mb-3">
+              {multiStore
+                ? `Items from ${storeGroups.length} stores: you'll get one order per store.`
+                : 'Free shipping above ₹499'}
+            </p>
             <button
               onClick={() => {
                 setIsCartOpen(false)

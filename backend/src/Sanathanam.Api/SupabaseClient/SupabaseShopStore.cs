@@ -25,44 +25,77 @@ public class SupabaseShopStore(Supabase.Client client)
         return res.Models.FirstOrDefault() is { } row ? ToTenant(row) : null;
     }
 
+    public async Task<List<Tenant>> ListTenantsAsync()
+    {
+        var res = await client.From<TenantRow>().Order("name", Ordering.Ascending).Get();
+        return res.Models.Select(ToTenant).ToList();
+    }
+
+    public async Task<Tenant> CreateTenantAsync(Tenant t)
+    {
+        var row = new TenantRow
+        {
+            Id = Guid.NewGuid(),
+            Slug = t.Slug,
+            Name = t.Name,
+            Tagline = t.Tagline,
+            Domain = "",
+            ThemeKey = t.ThemeKey,
+            OrderPrefix = t.OrderPrefix,
+            WhatsAppNumber = t.WhatsAppNumber,
+        };
+        var inserted = await client.From<TenantRow>().Insert(row);
+        return ToTenant(inserted.Models.First());
+    }
+
+    private async Task<HashSet<Guid>> ProductIdsForTenantAsync(Guid tenantId)
+    {
+        var links = await client.From<ProductTenantRow>()
+            .Filter("tenant_id", Operator.Equals, tenantId.ToString())
+            .Get();
+        return links.Models.Select(x => x.ProductId).ToHashSet();
+    }
+
+    public async Task<bool> ProductBelongsToTenantAsync(Guid productId, Guid tenantId) =>
+        (await ProductIdsForTenantAsync(tenantId)).Contains(productId);
+
     public async Task<List<object>> ListProductsForTenantAsync(Guid tenantId)
     {
-        _ = tenantId;
-        var links = await client.From<ProductTenantRow>().Get();
-        var ids = links.Models.Select(x => x.ProductId).ToHashSet();
-        // Single storefront: catalog is shared across former brand tenants.
+        var ids = await ProductIdsForTenantAsync(tenantId);
+        if (ids.Count == 0) return [];
         var products = await client.From<ProductRow>().Order("name", Ordering.Ascending).Get();
         return products.Models
-            .Where(p => ids.Count == 0 || ids.Contains(p.Id))
+            .Where(p => ids.Contains(p.Id))
             .Select(MapProduct)
             .ToList();
     }
 
     public async Task<object> ListCategoriesForTenantAsync(Guid tenantId)
     {
-        _ = tenantId;
-        var cats = await client.From<CategoryRow>()
-            .Order("name", Ordering.Ascending)
-            .Get();
-        var subs = await client.From<SubcategoryRow>()
-            .Order("name", Ordering.Ascending)
-            .Get();
-        var allProducts = (await client.From<ProductRow>().Get()).Models
-            .Where(p => !string.IsNullOrEmpty(p.Subcategory))
-            .Select(p => new { p.Category, p.Subcategory })
-            .ToList();
+        var tid = tenantId.ToString();
+        var cats = await client.From<CategoryRow>().Filter("tenant_id", Operator.Equals, tid).Get();
+        var subs = await client.From<SubcategoryRow>().Filter("tenant_id", Operator.Equals, tid).Get();
+        var ids = await ProductIdsForTenantAsync(tenantId);
+        var storeProducts = ids.Count == 0
+            ? []
+            : (await client.From<ProductRow>().Get()).Models.Where(p => ids.Contains(p.Id)).ToList();
 
-        return cats.Models
-            .GroupBy(c => c.Name)
-            .OrderBy(g => g.Key)
-            .Select(g =>
-            {
-                var name = g.Key;
-                var seeded = subs.Models.Where(s => s.CategoryName == name).Select(s => s.Name);
-                var productSubs = allProducts.Where(p => p.Category == name).Select(p => p.Subcategory);
-                var subcategories = seeded.Concat(productSubs).Distinct().OrderBy(x => x).ToList();
-                return new { name, subcategories };
-            }).ToList();
+        // Categories typed on a product (admin form) count too, not just the seeded ones.
+        var names = cats.Models.Select(c => c.Name)
+            .Concat(storeProducts.Select(p => p.Category))
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct()
+            .OrderBy(n => n);
+
+        return names.Select(name =>
+        {
+            var seeded = subs.Models.Where(s => s.CategoryName == name).Select(s => s.Name);
+            var productSubs = storeProducts
+                .Where(p => p.Category == name && !string.IsNullOrEmpty(p.Subcategory))
+                .Select(p => p.Subcategory);
+            var subcategories = seeded.Concat(productSubs).Distinct().OrderBy(x => x).ToList();
+            return new { name, subcategories };
+        }).ToList();
     }
 
     public async Task<object> CreateProductAsync(Guid tenantId, ProductWriteDto body)
@@ -72,6 +105,7 @@ public class SupabaseShopStore(Supabase.Client client)
             Id = Guid.NewGuid(),
             Name = body.Name,
             PriceInInr = body.PriceInInr,
+            Mrp = body.Mrp ?? 0,
             Domain = body.Domain ?? "",
             Category = body.Category ?? "",
             Subcategory = body.Subcategory ?? "",
@@ -101,6 +135,7 @@ public class SupabaseShopStore(Supabase.Client client)
             .Filter("id", Operator.Equals, id.ToString())
             .Set(x => x.Name!, body.Name)
             .Set(x => x.PriceInInr, body.PriceInInr)
+            .Set(x => x.Mrp, body.Mrp ?? existing.Mrp)
             .Set(x => x.Domain!, body.Domain ?? "")
             .Set(x => x.Category!, body.Category ?? "")
             .Set(x => x.Subcategory!, body.Subcategory ?? "")
@@ -111,6 +146,24 @@ public class SupabaseShopStore(Supabase.Client client)
             .Set(x => x.ImageUrl!, body.ImageUrl ?? existing.ImageUrl)
             .Update();
         return updated.Models.FirstOrDefault() is { } p ? MapProduct(p) : null;
+    }
+
+    /// <summary>Sets the offer price to the MRP for every product of the store that has an MRP.</summary>
+    public async Task<int> CopyMrpToOfferPriceAsync(Guid tenantId)
+    {
+        var ids = await ProductIdsForTenantAsync(tenantId);
+        if (ids.Count == 0) return 0;
+        var products = (await client.From<ProductRow>().Get()).Models
+            .Where(p => ids.Contains(p.Id) && p.Mrp > 0 && p.PriceInInr != p.Mrp)
+            .ToList();
+        foreach (var p in products)
+        {
+            await client.From<ProductRow>()
+                .Filter("id", Operator.Equals, p.Id.ToString())
+                .Set(x => x.PriceInInr, p.Mrp)
+                .Update();
+        }
+        return products.Count;
     }
 
     public async Task<bool> DeleteProductAsync(Guid id)
@@ -181,6 +234,7 @@ public class SupabaseShopStore(Supabase.Client client)
     {
         await client.From<TenantRow>()
             .Filter("id", Operator.Equals, t.Id.ToString())
+            .Set(x => x.Name, t.Name)
             .Set(x => x.WhatsAppNumber, t.WhatsAppNumber)
             .Set(x => x.Tagline, t.Tagline)
             .Set(x => x.HeroEyebrow, t.HeroEyebrow)
@@ -343,6 +397,7 @@ public class SupabaseShopStore(Supabase.Client client)
         Id = p.Id,
         Name = p.Name,
         PriceInInr = p.PriceInInr,
+        Mrp = p.Mrp,
         Domain = p.Domain,
         Category = p.Category,
         Subcategory = p.Subcategory,
@@ -358,6 +413,7 @@ public class SupabaseShopStore(Supabase.Client client)
         id = p.Id,
         name = p.Name,
         price_in_inr = p.PriceInInr,
+        mrp = p.Mrp,
         domain = p.Domain,
         category = p.Category,
         subcategory = p.Subcategory,
@@ -379,4 +435,5 @@ public record ProductWriteDto(
     bool Bestseller,
     bool Available,
     string? ImageUrl,
-    string? Domain = null);
+    string? Domain = null,
+    decimal? Mrp = null);
