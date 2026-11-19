@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useStore, useStorePath } from '../../context/StoreContext'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { useBrand } from '../../context/BrandContext'
@@ -12,13 +13,22 @@ export default function Navbar() {
   const brand = useBrand()
   const t = getThemeMeta(brand)
   const location = useLocation()
+  const navigate = useNavigate()
+  const { stores, store } = useStore()
+  const storePath = useStorePath()
 
   const links = [
-    { to: '/', label: 'Home' },
-    { to: '/products', label: t.exploreLabel },
-    { to: '/brands', label: 'Our brands' },
+    { to: storePath('/'), label: 'Home' },
+    { to: storePath('/products'), label: t.exploreLabel },
     { to: isAuthenticated ? '/account' : '/login', label: isAuthenticated ? 'Account' : 'Sign in' },
   ]
+
+  // Stay on the same kind of page (home or products) in the other store.
+  const switchStore = (slug) => {
+    setMenuOpen(false)
+    const onProducts = location.pathname.endsWith('/products')
+    navigate(`/${slug}${onProducts ? '/products' : ''}`)
+  }
 
   const cartBadge =
     brand.theme_key === 'divine-jewels'
@@ -30,15 +40,7 @@ export default function Navbar() {
   return (
     <nav className={`sticky top-0 z-40 ${t.nav}`}>
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2" aria-label={`${brand.name} — Home`}>
-          <img src={brand.logo_url} alt="" className="h-8 w-8 rounded-full object-cover" aria-hidden="true" />
-          <div>
-            <p className={`font-serif text-lg font-bold leading-none ${t.navTitle}`}>{brand.name}</p>
-            <p className={`text-[10px] leading-none tracking-widest uppercase ${t.navTagline}`}>
-              {brand.tagline}
-            </p>
-          </div>
-        </Link>
+        <BrandSwitcher brand={brand} t={t} stores={stores} current={store.slug} homePath={storePath('/')} onPick={switchStore} />
 
         <div className="hidden md:flex items-center gap-6">
           {links.map((link) => (
@@ -107,6 +109,125 @@ export default function Navbar() {
         </div>
       )}
     </nav>
+  )
+}
+
+function BrandMark({ brand, t }) {
+  return (
+    <>
+      <img src={brand.logo_url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" aria-hidden="true" />
+      <span className="min-w-0 text-left">
+        <span className={`block font-serif text-base sm:text-lg font-bold leading-none truncate ${t.navTitle}`}>{brand.name}</span>
+        <span className={`hidden sm:block text-[10px] leading-none tracking-widest uppercase mt-0.5 ${t.navTagline}`}>
+          {brand.tagline}
+        </span>
+      </span>
+    </>
+  )
+}
+
+function StoreAvatar({ store }) {
+  const [broken, setBroken] = useState(false)
+  if (store.logo_url && !broken) {
+    return <img src={store.logo_url} alt="" onError={() => setBroken(true)} className="h-9 w-9 shrink-0 rounded-full object-cover bg-gray-100" />
+  }
+  return (
+    <span className="h-9 w-9 shrink-0 rounded-full bg-gray-200 flex items-center justify-center font-serif font-bold text-gray-600">
+      {store.name?.[0] ?? '?'}
+    </span>
+  )
+}
+
+/** The store's logo and name double as the store switcher. */
+function BrandSwitcher({ brand, t, stores, current, homePath, onPick }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (!ref.current?.contains(e.target)) setOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  if (stores.length < 2) {
+    return (
+      <Link to={homePath} className="flex items-center gap-2 min-w-0" aria-label={`${brand.name} — Home`}>
+        <BrandMark brand={brand} t={t} />
+      </Link>
+    )
+  }
+
+  return (
+    <div ref={ref} className="relative min-w-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${brand.name} — switch store`}
+        className="flex items-center gap-2 min-w-0 min-h-[44px] -ml-1 pl-1 pr-2 rounded-xl hover:bg-black/5 transition-colors"
+      >
+        <BrandMark brand={brand} t={t} />
+        <svg
+          className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''} ${t.navTagline}`}
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M4 6l4 4 4-4" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Switch store"
+          className="absolute left-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white text-[#1f2937] rounded-2xl shadow-xl border border-black/10 p-1.5 z-50"
+        >
+          <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Our stores</p>
+          {stores.map((s) => {
+            const active = s.slug === current
+            return (
+              <button
+                key={s.slug}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                onClick={() => {
+                  setOpen(false)
+                  if (!active) onPick(s.slug)
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                  active ? 'bg-gray-100' : 'hover:bg-gray-50'
+                }`}
+              >
+                <StoreAvatar store={s} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold truncate">{s.name}</span>
+                  {s.tagline && <span className="block text-xs text-gray-500 truncate">{s.tagline}</span>}
+                </span>
+                {active && (
+                  <svg className="h-4 w-4 shrink-0 text-gray-700" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+                    <path d="M3.5 8.5l3 3 6-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

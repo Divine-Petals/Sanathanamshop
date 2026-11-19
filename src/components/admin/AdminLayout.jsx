@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useAdminSite } from '../../context/AdminSiteContext'
 
@@ -27,6 +27,27 @@ export default function AdminLayout({ children }) {
               Logout
             </button>
           </div>
+
+          <nav className="mt-4 flex gap-1 border-b border-earth-100" aria-label="Admin sections">
+            {[
+              { to: '/admin/inventory', label: 'Inventory' },
+              { to: '/admin/stores', label: 'Stores & branding' },
+            ].map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={({ isActive }) =>
+                  `min-h-[40px] px-4 inline-flex items-center text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                    isActive
+                      ? 'border-saffron-500 text-deep-green'
+                      : 'border-transparent text-earth-500 hover:text-deep-green'
+                  }`
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
+          </nav>
 
           <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Select storefront">
             {sites.map((s) => {

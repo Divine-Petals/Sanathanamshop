@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
+import { useStorePath } from '../../context/StoreContext'
 import { useProducts } from '../../context/ProductContext'
 import { useCart } from '../../context/CartContext'
 import { useBrand } from '../../context/BrandContext'
 import { getThemeMeta } from '../../lib/theme'
+import Price from '../products/Price'
 
 function BestSellerCard({ product, t, themeKey }) {
   const { addToCart } = useCart()
@@ -28,7 +30,9 @@ function BestSellerCard({ product, t, themeKey }) {
       </div>
       <div className="p-3 flex flex-col flex-1">
         <p className={`font-serif font-semibold text-sm leading-tight mb-0.5 ${titleClass}`}>{product.name}</p>
-        <p className={`font-bold text-sm mb-2 ${t.accent}`}>₹{product.price_in_inr}</p>
+        <p className="mb-2">
+          <Price product={product} className={`font-bold text-sm ${t.accent}`} />
+        </p>
         <button
           onClick={() => addToCart(product)}
           className={`mt-auto w-full min-h-[36px] text-white text-xs font-semibold rounded-lg transition-colors ${t.primaryBtn}`}
@@ -42,6 +46,7 @@ function BestSellerCard({ product, t, themeKey }) {
 }
 
 export default function BestSellers() {
+  const storePath = useStorePath()
   const { products } = useProducts()
   const brand = useBrand()
   const t = getThemeMeta(brand)
@@ -66,7 +71,7 @@ export default function BestSellers() {
             <h2 className={`font-serif text-2xl md:text-3xl font-bold ${titleClass}`}>Best Sellers</h2>
             <p className="text-earth-500 text-sm mt-1">{subtitle}</p>
           </div>
-          <Link to="/products" className={`hidden md:inline-block text-sm font-semibold hover:underline underline-offset-2 ${t.accent}`}>
+          <Link to={storePath('/products')} className={`hidden md:inline-block text-sm font-semibold hover:underline underline-offset-2 ${t.accent}`}>
             View All →
           </Link>
         </div>
@@ -85,7 +90,7 @@ export default function BestSellers() {
           ))}
         </div>
         <div className="mt-5 md:hidden text-center">
-          <Link to="/products" className={`text-sm font-semibold ${t.accent}`}>View All →</Link>
+          <Link to={storePath('/products')} className={`text-sm font-semibold ${t.accent}`}>View All →</Link>
         </div>
       </div>
     </section>

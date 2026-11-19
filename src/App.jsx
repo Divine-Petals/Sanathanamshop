@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
+import { StoreProvider, useStore } from './context/StoreContext'
 import { ProductProvider } from './context/ProductContext'
 import { CartProvider } from './context/CartContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -18,7 +19,7 @@ import LoginPage from './pages/LoginPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import CheckoutPage from './pages/CheckoutPage'
 import AccountPage, { OrderDetailPage } from './pages/AccountPage'
-import BrandsPage from './pages/BrandsPage'
+import AdminStoresPage from './pages/AdminStoresPage'
 
 function CustomerRoute({ children }) {
   const { isAuthenticated, authLoading } = useAuth()
@@ -45,59 +46,81 @@ function StoreLayout({ children }) {
   )
 }
 
-function AdminApp() {
+function AdminApp({ children }) {
   return (
     <AdminSiteProvider>
       <AdminInventoryProvider>
-        <AdminLayout>
-          <AdminPage />
-        </AdminLayout>
+        <AdminLayout>{children}</AdminLayout>
       </AdminInventoryProvider>
     </AdminSiteProvider>
   )
 }
 
+/** Store pages (/:store, /:store/products) render only for a real store; anything else goes to a valid one. */
+function StorePage({ children }) {
+  const { store: slug } = useParams()
+  const { storesLoaded, isKnown, fallbackSlug } = useStore()
+  if (storesLoaded && !isKnown(slug?.toLowerCase())) {
+    return <Navigate to={`/${fallbackSlug}`} replace />
+  }
+  return <StoreLayout>{children}</StoreLayout>
+}
+
+/** "/" and old links like "/products?domain=Soaps" go to the active store. */
+function ToActiveStore({ path = '' }) {
+  const { store } = useStore()
+  const location = useLocation()
+  return <Navigate to={`/${store.slug}${path}${location.search}`} replace />
+}
+
 export default function App() {
   return (
+    <BrowserRouter>
+      <StoreProvider>
     <BrandProvider>
       <AuthProvider>
         <AdminAuthProvider>
           <ProductProvider>
             <CartProvider>
-              <BrowserRouter>
                 <Routes>
                   <Route path="/admin/login" element={<AdminLoginPage />} />
                   <Route
                     path="/admin/inventory"
                     element={
                       <AdminRoute>
-                        <AdminApp />
+                        <AdminApp>
+                          <AdminPage />
+                        </AdminApp>
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/stores"
+                    element={
+                      <AdminRoute>
+                        <AdminApp>
+                          <AdminStoresPage />
+                        </AdminApp>
                       </AdminRoute>
                     }
                   />
                   <Route path="/admin" element={<Navigate to="/admin/inventory" replace />} />
+                  <Route path="/" element={<ToActiveStore />} />
+                  <Route path="/products" element={<ToActiveStore path="/products" />} />
                   <Route
-                    path="/"
+                    path="/:store"
                     element={
-                      <StoreLayout>
+                      <StorePage>
                         <LandingPage />
-                      </StoreLayout>
+                      </StorePage>
                     }
                   />
                   <Route
-                    path="/products"
+                    path="/:store/products"
                     element={
-                      <StoreLayout>
+                      <StorePage>
                         <ProductsPage />
-                      </StoreLayout>
-                    }
-                  />
-                  <Route
-                    path="/brands"
-                    element={
-                      <StoreLayout>
-                        <BrandsPage />
-                      </StoreLayout>
+                      </StorePage>
                     }
                   />
                   <Route
@@ -138,11 +161,12 @@ export default function App() {
                   />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
-              </BrowserRouter>
             </CartProvider>
           </ProductProvider>
         </AdminAuthProvider>
       </AuthProvider>
     </BrandProvider>
+      </StoreProvider>
+    </BrowserRouter>
   )
 }

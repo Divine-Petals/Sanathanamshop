@@ -49,6 +49,7 @@ export function AdminInventoryProvider({ children }) {
     const data = await api.adminCreateProduct({
       name: product.name,
       price_in_inr: Number(product.price_in_inr),
+      mrp: Number(product.mrp) || 0,
       category: product.category,
       subcategory: product.subcategory ?? '',
       domain: product.domain ?? '',
@@ -70,6 +71,7 @@ export function AdminInventoryProvider({ children }) {
     const data = await api.adminUpdateProduct(id, {
       name: product.name,
       price_in_inr: Number(product.price_in_inr),
+      mrp: Number(product.mrp) || 0,
       category: product.category,
       subcategory: product.subcategory ?? '',
       domain: product.domain ?? '',
@@ -80,6 +82,13 @@ export function AdminInventoryProvider({ children }) {
       image_url: product.image_url,
     })
     setProducts((prev) => prev.map((p) => (p.id === id ? data : p)))
+  }
+
+  // Offer price = MRP for every product of this store that has an MRP.
+  const copyMrpToOffer = async () => {
+    const { updated } = await api.adminCopyMrpToOffer()
+    await refresh()
+    return updated
   }
 
   const toggleAvailability = async (id) => {
@@ -100,6 +109,7 @@ export function AdminInventoryProvider({ children }) {
         updateProduct,
         removeProduct,
         toggleAvailability,
+        copyMrpToOffer,
       }}
     >
       {children}

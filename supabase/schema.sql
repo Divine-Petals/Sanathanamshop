@@ -156,3 +156,7 @@ grant select on tenants, categories, subcategories, products, product_tenants to
 
 -- Safe for existing projects created before domain filter.
 alter table products add column if not exists domain text not null default '';
+
+-- MRP (maximum retail price). price_in_inr is the offer price customers pay.
+alter table products add column if not exists mrp numeric(10,2) not null default 0;
+update products set mrp = price_in_inr where mrp = 0;

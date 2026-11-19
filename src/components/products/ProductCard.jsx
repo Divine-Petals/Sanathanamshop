@@ -1,6 +1,7 @@
 import { useCart } from '../../context/CartContext'
 import { useBrand } from '../../context/BrandContext'
 import { getThemeMeta } from '../../lib/theme'
+import Price from './Price'
 
 function placeholderFor(name) {
   return `https://placehold.co/300x200/e8c9a6/703410?text=${encodeURIComponent(name.split('&')[0].trim())}`
@@ -53,7 +54,9 @@ export default function ProductCard({ product }) {
           </div>
         )}
         <div className="flex items-center justify-between gap-2 mt-auto">
-          <p className={`font-bold text-lg leading-none ${t.accent}`}>₹{product.price_in_inr}</p>
+          <p className="leading-none">
+            <Price product={product} className={`font-bold text-lg leading-none ${t.accent}`} />
+          </p>
           <button
             onClick={() => addToCart(product)}
             className={`min-h-[44px] min-w-[44px] text-white text-xs font-semibold px-4 rounded-xl transition-colors ${t.primaryBtn}`}

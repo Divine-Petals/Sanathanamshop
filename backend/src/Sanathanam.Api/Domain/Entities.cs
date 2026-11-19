@@ -65,7 +65,10 @@ public class Product
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
+    /// <summary>Offer price: what the customer pays.</summary>
     public decimal PriceInInr { get; set; }
+    /// <summary>Maximum retail price, shown struck out when above the offer price. 0 = not set.</summary>
+    public decimal Mrp { get; set; }
     public string Domain { get; set; } = "";
     public string Category { get; set; } = "";
     public string Subcategory { get; set; } = "";
