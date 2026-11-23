@@ -113,6 +113,7 @@ public class SupabaseShopStore(Supabase.Client client)
             Ingredients = ProductRow.IngredientsFrom(body.Ingredients),
             Bestseller = body.Bestseller,
             Available = body.Available,
+            Stock = body.Stock,
             ImageUrl = body.ImageUrl ?? ""
         };
         var inserted = await client.From<ProductRow>().Insert(row);
@@ -143,6 +144,7 @@ public class SupabaseShopStore(Supabase.Client client)
             .Set(x => x.Ingredients, ProductRow.IngredientsFrom(body.Ingredients))
             .Set(x => x.Bestseller, body.Bestseller)
             .Set(x => x.Available, body.Available)
+            .Set(x => x.Stock!, body.Stock)
             .Set(x => x.ImageUrl!, body.ImageUrl ?? existing.ImageUrl)
             .Update();
         return updated.Models.FirstOrDefault() is { } p ? MapProduct(p) : null;
@@ -223,7 +225,9 @@ public class SupabaseShopStore(Supabase.Client client)
                 order_number = o.OrderNumber,
                 total_price = o.TotalPrice,
                 status = ((OrderStatus)o.Status).ToString().ToLowerInvariant(),
+                payment_status = ((PaymentStatus)o.PaymentStatus).ToString().ToLowerInvariant(),
                 phone = o.Phone,
+                shipping = new { o.ShippingName, o.ShippingLine1, o.ShippingCity, o.ShippingPincode, o.ShippingState },
                 created_at = o.CreatedAt,
                 items = lines.Select(i => new { name = i.Name, qty = i.Qty, price_in_inr = i.PriceInInr })
             };
@@ -268,7 +272,102 @@ public class SupabaseShopStore(Supabase.Client client)
             .Set(x => x.Status, (int)status)
             .Update();
         var o = updated.Models.FirstOrDefault() ?? res.Models.First();
-        return new { id = o.Id, status = ((OrderStatus)o.Status).ToString().ToLowerInvariant() };
+        return new
+        {
+            id = o.Id,
+            status = ((OrderStatus)o.Status).ToString().ToLowerInvariant(),
+            payment_status = ((PaymentStatus)o.PaymentStatus).ToString().ToLowerInvariant()
+        };
+    }
+
+    public async Task<object?> PatchOrderPaymentAsync(Guid id, PaymentStatus payment)
+    {
+        var res = await client.From<OrderRow>().Filter("id", Operator.Equals, id.ToString()).Get();
+        if (res.Models.Count == 0) return null;
+        var updated = await client.From<OrderRow>()
+            .Filter("id", Operator.Equals, id.ToString())
+            .Set(x => x.PaymentStatus, (int)payment)
+            .Update();
+        var o = updated.Models.FirstOrDefault() ?? res.Models.First();
+        return new
+        {
+            id = o.Id,
+            status = ((OrderStatus)o.Status).ToString().ToLowerInvariant(),
+            payment_status = ((PaymentStatus)o.PaymentStatus).ToString().ToLowerInvariant()
+        };
+    }
+
+    /// <summary>
+    /// Takes <paramref name="qty"/> units off a tracked product's stock. PostgREST has no atomic
+    /// decrement, so this is a compare-and-set on the current value, retried on a concurrent change.
+    /// Returns false when there isn't enough stock. Untracked products (stock null) always succeed.
+    /// </summary>
+    public async Task<bool> TryReserveStockAsync(Guid productId, int qty)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var res = await client.From<ProductRow>().Filter("id", Operator.Equals, productId.ToString()).Get();
+            var row = res.Models.FirstOrDefault();
+            if (row is null) return false;
+            if (row.Stock is not int current) return true;
+            if (current < qty) return false;
+            var updated = await client.From<ProductRow>()
+                .Filter("id", Operator.Equals, productId.ToString())
+                .Filter("stock", Operator.Equals, current.ToString())
+                .Set(x => x.Stock!, current - qty)
+                .Update();
+            if (updated.Models.Count > 0) return true;
+        }
+        return false;
+    }
+
+    public async Task<int?> GetStockAsync(Guid productId)
+    {
+        var res = await client.From<ProductRow>().Filter("id", Operator.Equals, productId.ToString()).Get();
+        return res.Models.FirstOrDefault()?.Stock;
+    }
+
+    /// <summary>Puts units back on a tracked product's stock (failed order, cancellation).</summary>
+    public async Task ReleaseStockAsync(Guid productId, int qty)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var res = await client.From<ProductRow>().Filter("id", Operator.Equals, productId.ToString()).Get();
+            var row = res.Models.FirstOrDefault();
+            if (row?.Stock is not int current) return;
+            var updated = await client.From<ProductRow>()
+                .Filter("id", Operator.Equals, productId.ToString())
+                .Filter("stock", Operator.Equals, current.ToString())
+                .Set(x => x.Stock!, current + qty)
+                .Update();
+            if (updated.Models.Count > 0) return;
+        }
+        Console.Error.WriteLine($"WARNING could not return {qty} units to stock of product {productId}.");
+    }
+
+    /// <summary>Status and line items of one order, for stock changes on cancel/reopen.</summary>
+    public async Task<Order?> GetOrderWithItemsAsync(Guid id)
+    {
+        var res = await client.From<OrderRow>().Filter("id", Operator.Equals, id.ToString()).Get();
+        var o = res.Models.FirstOrDefault();
+        if (o is null) return null;
+        var items = await client.From<OrderItemRow>().Filter("order_id", Operator.Equals, id.ToString()).Get();
+        return new Order
+        {
+            Id = o.Id,
+            TenantId = o.TenantId,
+            Status = (OrderStatus)o.Status,
+            PaymentStatus = (PaymentStatus)o.PaymentStatus,
+            Items = items.Models.Select(i => new OrderItem
+            {
+                Id = i.Id,
+                OrderId = i.OrderId,
+                ProductId = i.ProductId,
+                Name = i.Name,
+                Qty = i.Qty,
+                PriceInInr = i.PriceInInr
+            }).ToList()
+        };
     }
 
     public async Task<List<Product>> GetAvailableProductsAsync(Guid tenantId, IEnumerable<Guid> productIds)
@@ -295,6 +394,7 @@ public class SupabaseShopStore(Supabase.Client client)
             UserId = order.UserId,
             TotalPrice = order.TotalPrice,
             Status = (int)order.Status,
+            PaymentStatus = (int)order.PaymentStatus,
             Phone = order.Phone,
             ShippingName = order.ShippingName,
             ShippingLine1 = order.ShippingLine1,
@@ -405,6 +505,7 @@ public class SupabaseShopStore(Supabase.Client client)
         Ingredients = p.GetIngredients(),
         Bestseller = p.Bestseller,
         Available = p.Available,
+        Stock = p.Stock,
         ImageUrl = p.ImageUrl
     };
 
@@ -421,6 +522,7 @@ public class SupabaseShopStore(Supabase.Client client)
         ingredients = p.GetIngredients(),
         bestseller = p.Bestseller,
         available = p.Available,
+        stock = p.Stock,
         image_url = p.ImageUrl
     };
 }
@@ -436,4 +538,5 @@ public record ProductWriteDto(
     bool Available,
     string? ImageUrl,
     string? Domain = null,
-    decimal? Mrp = null);
+    decimal? Mrp = null,
+    int? Stock = null);

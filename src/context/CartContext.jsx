@@ -2,6 +2,10 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useStore } from './StoreContext'
 
 const CartContext = createContext(null)
+
+/** Stock is tracked when it's a number; null/undefined means unlimited. */
+export const isOutOfStock = (product) => typeof product?.stock === 'number' && product.stock <= 0
+const capQty = (qty, stock) => (typeof stock === 'number' ? Math.min(qty, Math.max(stock, 1)) : qty)
 const CART_KEY = 'sanathanam.cart'
 
 function readCart() {
@@ -42,15 +46,17 @@ export function CartProvider({ children }) {
   }, [cartItems])
 
   const addToCart = (product) => {
+    if (isOutOfStock(product)) return
+    const stock = typeof product.stock === 'number' ? product.stock : null
     setCartItems((prev) => {
       const existing = prev.find((item) => item.id === product.id)
       if (existing) {
         return prev.map((item) =>
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item
+          item.id === product.id ? { ...item, stock, qty: capQty(item.qty + 1, stock) } : item
         )
       }
       const { id, name, price_in_inr, image_url } = product
-      return [...prev, { id, name, price_in_inr, image_url, qty: 1, store: { slug: store.slug, name: store.name } }]
+      return [...prev, { id, name, price_in_inr, image_url, stock, qty: 1, store: { slug: store.slug, name: store.name } }]
     })
     setIsCartOpen(true)
   }
@@ -65,7 +71,7 @@ export function CartProvider({ children }) {
       return
     }
     setCartItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, qty } : item))
+      prev.map((item) => (item.id === id ? { ...item, qty: capQty(qty, item.stock) } : item))
     )
   }
 

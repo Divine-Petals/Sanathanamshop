@@ -6,6 +6,7 @@ namespace Sanathanam.Api.Controllers;
 
 public record SendOtpRequest(string Phone);
 public record VerifyOtpRequest(string Phone, string Code);
+public record SignUpRequest(string Phone, string? Name, DateOnly? DateOfBirth);
 
 [ApiController]
 [Route("api/auth")]
@@ -16,8 +17,14 @@ public class AuthController(OtpService otp, TokenService tokens) : ControllerBas
     {
         try
         {
-            var debug = await otp.SendLoginOtpAsync(body.Phone);
-            return Ok(new { sent = true, debugOtp = debug });
+            var result = await otp.SendLoginOtpAsync(body.Phone);
+            return Ok(new
+            {
+                sent = !result.NewUser,
+                new_user = result.NewUser,
+                otp_mode = result.Mode,
+                debug_otp = result.DebugCode
+            });
         }
         catch (Exception ex)
         {
@@ -31,16 +38,32 @@ public class AuthController(OtpService otp, TokenService tokens) : ControllerBas
         try
         {
             var user = await otp.VerifyLoginOtpAsync(body.Phone, body.Code);
-            var token = tokens.CreateAccessToken(user.Id, user.Phone, "customer");
-            return Ok(new
-            {
-                token,
-                user = new { id = user.Id, phone = user.Phone, name = user.Name }
-            });
+            return Ok(SignedIn(user));
         }
         catch (Exception ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    /// <summary>New customer: phone (from the sign-in step) + name + date of birth. Signs them in.</summary>
+    [HttpPost("signup")]
+    public async Task<IActionResult> SignUp([FromBody] SignUpRequest body)
+    {
+        try
+        {
+            var user = await otp.SignUpAsync(body.Phone, body.Name, body.DateOfBirth);
+            return Ok(SignedIn(user));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private object SignedIn(Domain.User user) => new
+    {
+        token = tokens.CreateAccessToken(user.Id, user.Phone, "customer"),
+        user = MeController.UserDto(user)
+    };
 }

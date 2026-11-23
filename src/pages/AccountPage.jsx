@@ -66,7 +66,10 @@ export default function AccountPage() {
             >
               <div className="flex justify-between">
                 <span className="font-semibold text-deep-green">{o.order_number}</span>
-                <span className="text-xs uppercase tracking-wide text-saffron-600">{o.status}</span>
+                <span className="text-xs uppercase tracking-wide text-saffron-600">
+                  {o.status}
+                  {o.payment_status === 'paid' && <span className="text-earth-500"> · paid</span>}
+                </span>
               </div>
               <p className="text-sm text-earth-500 mt-1">
                 {o.store?.name ? `${o.store.name} · ` : ''}₹{Number(o.total_price).toFixed(2)}
@@ -141,7 +144,13 @@ export function OrderDetailPage() {
       )}
       <p className="text-xs uppercase tracking-wide text-earth-500">{storeName}</p>
       <h1 className="font-serif text-2xl font-bold text-deep-green">{order.order_number}</h1>
-      <p className="text-xs uppercase text-saffron-600 mt-1">{order.status}</p>
+      <p className="text-xs uppercase text-saffron-600 mt-1">
+        {order.status}
+        {order.payment_status && <span className="text-earth-500"> · payment {order.payment_status}</span>}
+      </p>
+      {order.status === 'closed' && (
+        <p className="mt-2 text-xs text-earth-500">This order is closed. Thank you for shopping with {storeName}.</p>
+      )}
       <div className="mt-6 space-y-2">
         {order.items.map((i) => (
           <div key={i.product_id + i.name} className="flex justify-between text-sm">

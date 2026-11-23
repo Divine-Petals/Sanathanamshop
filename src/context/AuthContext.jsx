@@ -32,9 +32,22 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  const signUp = async (phone, name, dateOfBirth) => {
+    const data = await api.signUp(phone, name, dateOfBirth)
+    setCustomerToken(data.token)
+    setUser(data.user)
+    return data
+  }
+
   const updateName = async (name) => {
     const next = await api.updateMe(name)
     setUser(next)
+  }
+
+  const updateProfile = async (name, dateOfBirth) => {
+    const next = await api.updateMe(name, dateOfBirth)
+    setUser(next)
+    return next
   }
 
   const logout = () => {
@@ -50,7 +63,9 @@ export function AuthProvider({ children }) {
         authLoading,
         sendOtp,
         verifyOtp,
+        signUp,
         updateName,
+        updateProfile,
         logout,
       }}
     >

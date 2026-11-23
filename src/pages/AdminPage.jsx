@@ -10,6 +10,7 @@ const EMPTY_FORM = {
   name: '',
   mrp: '',
   price_in_inr: '',
+  stock: '',
   domain: PRODUCT_DOMAINS[0],
   category: '',
   subcategory: '',
@@ -24,6 +25,7 @@ function productToForm(product) {
     name: product.name ?? '',
     mrp: Number(product.mrp) > 0 ? product.mrp : '',
     price_in_inr: product.price_in_inr ?? '',
+    stock: product.stock ?? '',
     domain: normalizeProductDomain(product.domain) || PRODUCT_DOMAINS[0],
     category: product.category ?? '',
     subcategory: product.subcategory ?? '',
@@ -41,11 +43,27 @@ function formToProduct(form) {
     ...form,
     mrp: form.mrp === '' ? 0 : Number(form.mrp),
     price_in_inr: Number(form.price_in_inr),
+    stock: form.stock === '' ? null : Number(form.stock),
     ingredients: form.ingredients
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
   }
+}
+
+function StockBadge({ stock }) {
+  if (stock == null) return <span className="text-earth-400 text-xs">Not tracked</span>
+  const cls =
+    stock === 0
+      ? 'bg-red-100 text-red-700'
+      : stock <= 5
+        ? 'bg-amber-100 text-amber-700'
+        : 'bg-earth-100 text-earth-700'
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${cls}`}>
+      {stock === 0 ? 'Out of stock' : `${stock} left`}
+    </span>
+  )
 }
 
 function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTree }) {
@@ -103,13 +121,17 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
   const mrpNum = Number(form.mrp) || 0
   const offerNum = Number(form.price_in_inr) || 0
   const priceError = mrpNum > 0 && offerNum > mrpNum ? 'Offer price can’t be more than the MRP.' : ''
+  const stockError =
+    form.stock !== '' && (!Number.isInteger(Number(form.stock)) || Number(form.stock) < 0)
+      ? 'Stock must be a whole number, 0 or more.'
+      : ''
   const discount = mrpNum > 0 && offerNum > 0 && offerNum < mrpNum ? Math.round((1 - offerNum / mrpNum) * 100) : 0
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (uploading) return
     if (!form.name.trim() || !form.price_in_inr) return
-    if (priceError) return
+    if (priceError || stockError) return
     onSubmit(formToProduct(form))
   }
 
@@ -203,6 +225,30 @@ function ProductForm({ editingProduct, onClose, onSubmit, categories, categoryTr
               (discount
                 ? `Customers see ₹${offerNum} with MRP ₹${mrpNum} struck out (${discount}% off).`
                 : 'Customers pay the offer price. Leave MRP empty to show only one price.')}
+          </p>
+        </div>
+
+        {/* Stock */}
+        <div>
+          <label className="block text-xs font-semibold text-earth-600 mb-1" htmlFor="prod-stock">
+            Stock (units)
+          </label>
+          <input
+            id="prod-stock"
+            type="number"
+            min={0}
+            step={1}
+            value={form.stock}
+            onChange={(e) => set('stock', e.target.value)}
+            placeholder="Not tracked"
+            aria-invalid={!!stockError}
+            className={`w-full min-h-[44px] px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-saffron-300 text-deep-green ${
+              stockError ? 'border-red-400' : 'border-earth-200'
+            }`}
+          />
+          <p className={`text-[11px] mt-1 ${stockError ? 'text-red-600' : 'text-earth-500'}`}>
+            {stockError ||
+              'Each order reduces this; at 0 customers can’t order it. Leave empty to not track stock.'}
           </p>
         </div>
 
@@ -507,7 +553,7 @@ export default function AdminPage() {
       )}
 
       {/* Desktop table */}
-      <div className="hidden md:block bg-white rounded-2xl border border-earth-100 shadow-sm overflow-hidden">
+      <div className="hidden md:block bg-white rounded-2xl border border-earth-100 shadow-sm overflow-x-auto">
         {products.length === 0 ? (
           <div className="text-center py-14 text-earth-400 text-sm">
             No products yet — add your first one above!
@@ -521,7 +567,8 @@ export default function AdminPage() {
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Category</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Subcategory</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Price</th>
-                <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Ingredients</th>
+                <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Stock</th>
+                <th className="hidden xl:table-cell px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Ingredients</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Status</th>
                 <th className="px-4 py-3 font-semibold text-earth-600 text-xs uppercase tracking-wide">Actions</th>
               </tr>
@@ -556,7 +603,10 @@ export default function AdminPage() {
                   <td className="px-4 py-3 whitespace-nowrap">
                     <Price product={product} className="font-semibold text-deep-green" />
                   </td>
-                  <td className="px-4 py-3 max-w-[200px]">
+                  <td className="px-4 py-3">
+                    <StockBadge stock={product.stock} />
+                  </td>
+                  <td className="hidden xl:table-cell px-4 py-3 max-w-[200px]">
                     <div className="flex flex-wrap gap-1">
                       {(product.ingredients ?? []).slice(0, 3).map((ing) => (
                         <span
@@ -583,7 +633,7 @@ export default function AdminPage() {
                       }`}
                       aria-label={`Toggle availability for ${product.name}`}
                     >
-                      {product.available !== false ? 'In Stock' : 'Hidden'}
+                      {product.available !== false ? 'Visible' : 'Hidden'}
                     </button>
                   </td>
                   <td className="px-4 py-3">
@@ -640,6 +690,7 @@ export default function AdminPage() {
                   {[product.domain, product.category, product.subcategory].filter(Boolean).join(' · ')}
                 </p>
                 <p className="mt-0.5"><Price product={product} className="text-saffron-600 font-bold text-sm" /></p>
+                <p className="mt-1"><StockBadge stock={product.stock} /></p>
                 {product.bestseller && (
                   <p className="text-[10px] text-saffron-500 font-semibold mt-0.5">★ Bestseller</p>
                 )}
@@ -680,7 +731,7 @@ export default function AdminPage() {
                 aria-label={`Toggle availability for ${product.name}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${product.available !== false ? 'bg-green-500' : 'bg-earth-400'}`} />
-                {product.available !== false ? 'In Stock' : 'Hidden'}
+                {product.available !== false ? 'Visible' : 'Hidden'}
               </button>
               <button
                 onClick={() => handleRemove(product)}

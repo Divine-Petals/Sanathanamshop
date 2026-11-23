@@ -84,8 +84,18 @@ export const api = {
   sendOtp: (phone) => request('/api/auth/otp/send', { method: 'POST', body: { phone }, auth: false }),
   verifyOtp: (phone, code) =>
     request('/api/auth/otp/verify', { method: 'POST', body: { phone, code }, auth: false }),
+  signUp: (phone, name, dateOfBirth) =>
+    request('/api/auth/signup', {
+      method: 'POST',
+      body: { phone, name, date_of_birth: dateOfBirth },
+      auth: false,
+    }),
   me: () => request('/api/me'),
-  updateMe: (name) => request('/api/me', { method: 'PUT', body: { name } }),
+  updateMe: (name, dateOfBirth) =>
+    request('/api/me', {
+      method: 'PUT',
+      body: dateOfBirth ? { name, date_of_birth: dateOfBirth } : { name },
+    }),
   addresses: () => request('/api/me/addresses'),
   addAddress: (address) => request('/api/me/addresses', { method: 'POST', body: address }),
   placeOrder: (payload, tenant) => request('/api/orders', { method: 'POST', body: payload, tenant }),
@@ -113,4 +123,6 @@ export const api = {
   },
   adminPatchOrder: (id, status) =>
     request(`/api/admin/orders/${id}`, { method: 'PATCH', body: { status }, admin: true }),
+  adminPatchOrderPayment: (id, status) =>
+    request(`/api/admin/orders/${id}/payment`, { method: 'PATCH', body: { status }, admin: true }),
 }

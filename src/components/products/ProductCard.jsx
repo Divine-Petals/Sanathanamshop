@@ -1,4 +1,4 @@
-import { useCart } from '../../context/CartContext'
+import { useCart, isOutOfStock } from '../../context/CartContext'
 import { useBrand } from '../../context/BrandContext'
 import { getThemeMeta } from '../../lib/theme'
 import Price from './Price'
@@ -59,10 +59,11 @@ export default function ProductCard({ product }) {
           </p>
           <button
             onClick={() => addToCart(product)}
-            className={`min-h-[44px] min-w-[44px] text-white text-xs font-semibold px-4 rounded-xl transition-colors ${t.primaryBtn}`}
+            disabled={isOutOfStock(product)}
+            className={`min-h-[44px] min-w-[44px] text-white text-xs font-semibold px-4 rounded-xl transition-colors ${t.primaryBtn} disabled:opacity-50 disabled:cursor-not-allowed`}
             aria-label={`Add ${product.name} to cart`}
           >
-            Add to Cart
+            {isOutOfStock(product) ? 'Out of stock' : 'Add to Cart'}
           </button>
         </div>
       </div>

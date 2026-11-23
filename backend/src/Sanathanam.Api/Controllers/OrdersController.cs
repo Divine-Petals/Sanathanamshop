@@ -60,6 +60,7 @@ public class OrdersController(OrderService orders, AppDbContext db, TenantContex
         order_number = o.OrderNumber,
         total_price = o.TotalPrice,
         status = o.Status.ToString().ToLowerInvariant(),
+        payment_status = o.PaymentStatus.ToString().ToLowerInvariant(),
         phone = o.Phone,
         shipping = new { o.ShippingName, o.ShippingLine1, o.ShippingCity, o.ShippingPincode, o.ShippingState },
         created_at = o.CreatedAt,

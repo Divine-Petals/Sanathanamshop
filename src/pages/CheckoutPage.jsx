@@ -9,7 +9,7 @@ import { orderWhatsAppLink } from '../lib/whatsapp'
 
 export default function CheckoutPage() {
   const { isAuthenticated, user, authLoading } = useAuth()
-  const { cartItems, setCartItems, storeGroups, totalPrice, setIsCartOpen } = useCart()
+  const { cartItems, setCartItems, storeGroups, totalPrice, setIsCartOpen, updateQty, removeFromCart } = useCart()
   const brand = useBrand()
   const { store: activeStore } = useStore()
   const [placedOrders, setPlacedOrders] = useState([])
@@ -56,7 +56,39 @@ export default function CheckoutPage() {
     state: 'Karnataka',
   })
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [placing, setPlacing] = useState(false)
+
+  // Pull the current stock for everything in the cart, so a stale cart can't block checkout:
+  // quantities above stock are lowered, and sold-out items are flagged (and can be removed).
+  const syncStock = async () => {
+    const slugs = [...new Set(cartItems.map((i) => i.store?.slug ?? activeStore.slug))]
+    const results = await Promise.all(slugs.map((slug) => api.products(slug).catch(() => null)))
+    const stockById = new Map()
+    results.forEach((rows) => rows?.forEach((p) => stockById.set(p.id, typeof p.stock === 'number' ? p.stock : null)))
+    const lowered = []
+    setCartItems((items) =>
+      items.map((i) => {
+        if (!stockById.has(i.id)) return i
+        const stock = stockById.get(i.id)
+        let qty = i.qty
+        if (stock !== null && stock > 0 && qty > stock) {
+          qty = stock
+          lowered.push(i.name)
+        }
+        return { ...i, stock, qty }
+      }),
+    )
+    setNotice(lowered.length ? `Quantity reduced to what's in stock for: ${lowered.join(', ')}.` : '')
+  }
+
+  useEffect(() => {
+    if (isAuthenticated && cartItems.length) syncStock()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
+
+  const soldOut = cartItems.filter((i) => typeof i.stock === 'number' && i.stock <= 0)
+  const blocked = soldOut.length > 0
 
   useEffect(() => {
     setIsCartOpen(false)
@@ -113,6 +145,7 @@ export default function CheckoutPage() {
       }
     }
     setPlacing(false)
+    if (failure) syncStock()
 
     if (placed.length === 1 && !failure) {
       navigate(`/account/orders/${placed[0].id}`, { state: { justPlaced: true } })
@@ -185,12 +218,54 @@ export default function CheckoutPage() {
                     {group.store?.name ?? 'Store'} · ₹{group.total.toFixed(2)}
                   </p>
                 )}
-                {group.items.map((i) => (
-                  <div key={i.id} className="flex justify-between text-sm py-2 border-b border-earth-50 last:border-0">
-                    <span>{i.name} × {i.qty}</span>
-                    <span>₹{(i.price_in_inr * i.qty).toFixed(2)}</span>
-                  </div>
-                ))}
+                {group.items.map((i) => {
+                  const tracked = typeof i.stock === 'number'
+                  const out = tracked && i.stock <= 0
+                  return (
+                    <div key={i.id} className="py-2 border-b border-earth-50 last:border-0">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className={`min-w-0 flex-1 ${out ? 'text-earth-400 line-through' : ''}`}>{i.name}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateQty(i.id, i.qty - 1)}
+                            disabled={out || i.qty <= 1}
+                            className="w-7 h-7 rounded-full border border-earth-200 text-earth-700 font-bold disabled:opacity-40"
+                            aria-label={`Decrease quantity of ${i.name}`}
+                          >
+                            −
+                          </button>
+                          <span className="w-5 text-center font-semibold">{i.qty}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateQty(i.id, i.qty + 1)}
+                            disabled={out || (tracked && i.qty >= i.stock)}
+                            className="w-7 h-7 rounded-full border border-earth-200 text-earth-700 font-bold disabled:opacity-40"
+                            aria-label={`Increase quantity of ${i.name}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="w-20 text-right">₹{(i.price_in_inr * i.qty).toFixed(2)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(i.id)}
+                          className="text-xs text-red-500 hover:text-red-700"
+                          aria-label={`Remove ${i.name}`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      {out ? (
+                        <p className="text-[11px] text-red-600 mt-1">Out of stock. Remove it to continue.</p>
+                      ) : (
+                        tracked && i.qty >= i.stock && (
+                          <p className="text-[11px] text-amber-700 mt-1">Only {i.stock} in stock.</p>
+                        )
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             ))}
             <div className="flex justify-between font-bold mt-3">
@@ -234,10 +309,11 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {notice && <p className="text-amber-700 text-sm">{notice}</p>}
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button
             type="submit"
-            disabled={placing}
+            disabled={placing || blocked}
             className="w-full min-h-[48px] bg-deep-green text-white font-bold rounded-xl disabled:opacity-50"
           >
             {placing

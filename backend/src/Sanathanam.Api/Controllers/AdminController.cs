@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Sanathanam.Api.Auth;
 using Sanathanam.Api.Data;
 using Sanathanam.Api.Domain;
+using Sanathanam.Api.Services;
 using Sanathanam.Api.SupabaseClient;
 using Sanathanam.Api.Tenancy;
 
@@ -21,8 +22,10 @@ public record ProductWrite(
     bool Available,
     string? ImageUrl,
     string? Domain,
-    decimal? Mrp);
+    decimal? Mrp,
+    int? Stock = null);
 public record StatusPatch(string Status);
+public record PaymentPatch(string Status);
 public record StoreCreate(
     string? Name,
     string? Slug,
@@ -49,6 +52,7 @@ public class AdminController(
     AppDbContext db,
     TokenService tokens,
     TenantContext tenantContext,
+    OrderService orderService,
     IEnumerable<SupabaseShopStore> shops) : ControllerBase
 {
     private readonly SupabaseShopStore? shop = shops.FirstOrDefault();
@@ -98,6 +102,7 @@ public class AdminController(
             Ingredients = body.Ingredients ?? [],
             Bestseller = body.Bestseller,
             Available = body.Available,
+            Stock = body.Stock,
             ImageUrl = body.ImageUrl ?? ""
         };
         db.Products.Add(product);
@@ -130,6 +135,7 @@ public class AdminController(
         product.Ingredients = body.Ingredients ?? [];
         product.Bestseller = body.Bestseller;
         product.Available = body.Available;
+        product.Stock = body.Stock;
         if (body.ImageUrl is not null) product.ImageUrl = body.ImageUrl;
         await db.SaveChangesAsync();
         return Ok(Map(product));
@@ -187,7 +193,9 @@ public class AdminController(
             order_number = o.OrderNumber,
             total_price = o.TotalPrice,
             status = o.Status.ToString().ToLowerInvariant(),
-            o.Phone,
+            payment_status = o.PaymentStatus.ToString().ToLowerInvariant(),
+            phone = o.Phone,
+            shipping = new { o.ShippingName, o.ShippingLine1, o.ShippingCity, o.ShippingPincode, o.ShippingState },
             created_at = o.CreatedAt,
             items = o.Items.Select(i => new { name = i.Name, qty = i.Qty, price_in_inr = i.PriceInInr })
         }));
@@ -306,17 +314,89 @@ public class AdminController(
         if (!Enum.TryParse<OrderStatus>(body.Status, true, out var status))
             return BadRequest(new { message = "Invalid status." });
 
+        var order = UseSupabase
+            ? await shop!.GetOrderWithItemsAsync(id)
+            : await db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id);
+        if (order is null || order.TenantId != tenantContext.Current?.Id)
+            return NotFound(new { message = "Order not found in this store." });
+
+        if (status == OrderStatus.Closed && order.Status == OrderStatus.Cancelled)
+            return BadRequest(new { message = "A cancelled order can't be closed." });
+        // A closed order is locked: it can only be reopened (moved to another open status).
+        if (order.Status == OrderStatus.Closed && status == OrderStatus.Cancelled)
+            return BadRequest(new { message = "Reopen the order before cancelling it." });
+
+        // Cancelling returns the items to stock; reopening a cancelled order takes them again.
+        var wasCancelled = order.Status == OrderStatus.Cancelled;
+        var nowCancelled = status == OrderStatus.Cancelled;
+        if (wasCancelled && !nowCancelled)
+        {
+            try
+            {
+                await orderService.ReserveStockAsync(order.Items);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = $"Can't reopen this order: {ex.Message}" });
+            }
+        }
+
+        try
+        {
+            if (UseSupabase)
+            {
+                var mapped = await shop!.PatchOrderStatusAsync(id, status);
+                if (mapped is null) return NotFound();
+                if (!wasCancelled && nowCancelled) await orderService.ReleaseStockAsync(order.Items);
+                return Ok(mapped);
+            }
+        }
+        catch
+        {
+            if (wasCancelled && !nowCancelled) await orderService.ReleaseStockAsync(order.Items);
+            throw;
+        }
+
+        if (!wasCancelled && nowCancelled) await orderService.ReleaseStockAsync(order.Items);
+        order.Status = status;
+        await db.SaveChangesAsync();
+        return Ok(new
+        {
+            id = order.Id,
+            status = order.Status.ToString().ToLowerInvariant(),
+            payment_status = order.PaymentStatus.ToString().ToLowerInvariant()
+        });
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpPatch("orders/{id:guid}/payment")]
+    public async Task<IActionResult> PatchPayment(Guid id, [FromBody] PaymentPatch body)
+    {
+        if (!Enum.TryParse<PaymentStatus>(body.Status, true, out var payment))
+            return BadRequest(new { message = "Invalid payment status." });
+
+        var order = UseSupabase
+            ? await shop!.GetOrderWithItemsAsync(id)
+            : await db.Orders.FirstOrDefaultAsync(o => o.Id == id);
+        if (order is null || order.TenantId != tenantContext.Current?.Id)
+            return NotFound(new { message = "Order not found in this store." });
+        if (order.Status == OrderStatus.Closed)
+            return BadRequest(new { message = "This order is closed. Reopen it to change the payment status." });
+
         if (UseSupabase)
         {
-            var mapped = await shop!.PatchOrderStatusAsync(id, status);
+            var mapped = await shop!.PatchOrderPaymentAsync(id, payment);
             return mapped is null ? NotFound() : Ok(mapped);
         }
 
-        var order = await db.Orders.FindAsync(id);
-        if (order is null) return NotFound();
-        order.Status = status;
+        order.PaymentStatus = payment;
         await db.SaveChangesAsync();
-        return Ok(new { order.Id, status = order.Status.ToString().ToLowerInvariant() });
+        return Ok(new
+        {
+            id = order.Id,
+            status = order.Status.ToString().ToLowerInvariant(),
+            payment_status = order.PaymentStatus.ToString().ToLowerInvariant()
+        });
     }
 
     /// <summary>A product can only be changed from the store it belongs to (X-Tenant).</summary>
@@ -391,13 +471,14 @@ public class AdminController(
 
     private static ProductWriteDto ToDto(ProductWrite body) => new(
         body.Name, body.PriceInInr, body.Category, body.Subcategory, body.Description,
-        body.Ingredients, body.Bestseller, body.Available, body.ImageUrl, body.Domain, body.Mrp);
+        body.Ingredients, body.Bestseller, body.Available, body.ImageUrl, body.Domain, body.Mrp, body.Stock);
 
     private static string? PriceError(ProductWrite body)
     {
         if (body.PriceInInr <= 0) return "Enter an offer price above 0.";
         if (body.Mrp is < 0) return "MRP can't be negative.";
         if (body.Mrp is > 0 && body.PriceInInr > body.Mrp) return "The offer price can't be more than the MRP.";
+        if (body.Stock is < 0) return "Stock can't be negative.";
         return null;
     }
 
@@ -435,6 +516,7 @@ public class AdminController(
         ingredients = p.Ingredients,
         bestseller = p.Bestseller,
         available = p.Available,
+        stock = p.Stock,
         image_url = p.ImageUrl
     };
 }

@@ -51,6 +51,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Id).HasColumnName("id");
             e.Property(x => x.Phone).HasColumnName("phone");
             e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.DateOfBirth).HasColumnName("date_of_birth");
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.HasIndex(x => x.Phone).IsUnique();
         });
@@ -105,6 +106,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 v => JsonSerializer.Deserialize<string[]>(v, (JsonSerializerOptions?)null) ?? Array.Empty<string>());
             e.Property(x => x.Bestseller).HasColumnName("bestseller");
             e.Property(x => x.Available).HasColumnName("available");
+            e.Property(x => x.Stock).HasColumnName("stock");
             e.Property(x => x.ImageUrl).HasColumnName("image_url");
         });
 
@@ -127,6 +129,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.UserId).HasColumnName("user_id");
             e.Property(x => x.TotalPrice).HasColumnName("total_price").HasPrecision(10, 2);
             e.Property(x => x.Status).HasColumnName("status");
+            e.Property(x => x.PaymentStatus).HasColumnName("payment_status");
             e.Property(x => x.Phone).HasColumnName("phone");
             e.Property(x => x.ShippingName).HasColumnName("shipping_name");
             e.Property(x => x.ShippingLine1).HasColumnName("shipping_line1");

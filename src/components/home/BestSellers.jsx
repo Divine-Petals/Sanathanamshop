@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useStorePath } from '../../context/StoreContext'
 import { useProducts } from '../../context/ProductContext'
-import { useCart } from '../../context/CartContext'
+import { useCart, isOutOfStock } from '../../context/CartContext'
 import { useBrand } from '../../context/BrandContext'
 import { getThemeMeta } from '../../lib/theme'
 import Price from '../products/Price'
@@ -35,10 +35,11 @@ function BestSellerCard({ product, t, themeKey }) {
         </p>
         <button
           onClick={() => addToCart(product)}
-          className={`mt-auto w-full min-h-[36px] text-white text-xs font-semibold rounded-lg transition-colors ${t.primaryBtn}`}
+          disabled={isOutOfStock(product)}
+          className={`mt-auto w-full min-h-[36px] text-white text-xs font-semibold rounded-lg transition-colors ${t.primaryBtn} disabled:opacity-50 disabled:cursor-not-allowed`}
           aria-label={`Add ${product.name} to cart`}
         >
-          Add to Cart
+          {isOutOfStock(product) ? 'Out of stock' : 'Add to Cart'}
         </button>
       </div>
     </div>

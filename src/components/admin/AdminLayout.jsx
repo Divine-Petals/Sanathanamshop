@@ -31,6 +31,7 @@ export default function AdminLayout({ children }) {
           <nav className="mt-4 flex gap-1 border-b border-earth-100" aria-label="Admin sections">
             {[
               { to: '/admin/inventory', label: 'Inventory' },
+              { to: '/admin/orders', label: 'Orders' },
               { to: '/admin/stores', label: 'Stores & branding' },
             ].map((l) => (
               <NavLink
