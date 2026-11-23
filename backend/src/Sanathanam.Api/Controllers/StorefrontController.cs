@@ -73,6 +73,7 @@ public class StorefrontController(
                 ingredients = p.Ingredients,
                 bestseller = p.Bestseller,
                 available = p.Available,
+                stock = p.Stock,
                 image_url = p.ImageUrl
             })
             .ToListAsync();

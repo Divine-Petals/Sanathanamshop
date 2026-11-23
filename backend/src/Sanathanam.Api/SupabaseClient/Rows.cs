@@ -60,6 +60,7 @@ public class ProductRow : BaseModel
     [Column("ingredients")] public JsonElement Ingredients { get; set; }
     [Column("bestseller")] public bool Bestseller { get; set; }
     [Column("available")] public bool Available { get; set; } = true;
+    [Column("stock")] public int? Stock { get; set; }
     [Column("image_url")] public string ImageUrl { get; set; } = "";
 
     public string[] GetIngredients()
@@ -106,6 +107,7 @@ public class OrderRow : BaseModel
     [Column("user_id")] public Guid UserId { get; set; }
     [Column("total_price")] public decimal TotalPrice { get; set; }
     [Column("status")] public int Status { get; set; }
+    [Column("payment_status")] public int PaymentStatus { get; set; }
     [Column("phone")] public string Phone { get; set; } = "";
     [Column("shipping_name")] public string ShippingName { get; set; } = "";
     [Column("shipping_line1")] public string ShippingLine1 { get; set; } = "";

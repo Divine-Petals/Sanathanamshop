@@ -26,6 +26,8 @@ public class User
     public Guid Id { get; set; }
     public string Phone { get; set; } = "";
     public string? Name { get; set; }
+    /// <summary>Collected at sign-up. For now the login OTP is its DDMM.</summary>
+    public DateOnly? DateOfBirth { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<Address> Addresses { get; set; } = [];
     public ICollection<Order> Orders { get; set; } = [];
@@ -76,6 +78,8 @@ public class Product
     public string[] Ingredients { get; set; } = [];
     public bool Bestseller { get; set; }
     public bool Available { get; set; } = true;
+    /// <summary>Units in stock. Null = stock not tracked (unlimited).</summary>
+    public int? Stock { get; set; }
     public string ImageUrl { get; set; } = "";
     public ICollection<ProductTenant> ProductTenants { get; set; } = [];
 }
@@ -115,7 +119,16 @@ public enum OrderStatus
     Packed = 2,
     Shipped = 3,
     Delivered = 4,
-    Cancelled = 5
+    Cancelled = 5,
+    /// <summary>Finished and locked: status and payment can't change until it is reopened.</summary>
+    Closed = 6
+}
+
+public enum PaymentStatus
+{
+    Unpaid = 0,
+    Paid = 1,
+    Refunded = 2
 }
 
 public class Order
@@ -128,6 +141,7 @@ public class Order
     public User User { get; set; } = null!;
     public decimal TotalPrice { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
+    public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Unpaid;
     public string Phone { get; set; } = "";
     public string ShippingName { get; set; } = "";
     public string ShippingLine1 { get; set; } = "";

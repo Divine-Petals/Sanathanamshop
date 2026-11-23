@@ -183,12 +183,15 @@ if (efReady && usePostgres)
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.ExecuteSqlRawAsync(
             "alter table tenants add column if not exists whatsapp_number text not null default ''");
+        await db.Database.ExecuteSqlRawAsync("alter table products add column if not exists stock int null");
+        await db.Database.ExecuteSqlRawAsync("alter table users add column if not exists date_of_birth date null");
+        await db.Database.ExecuteSqlRawAsync("alter table orders add column if not exists payment_status int not null default 0");
         // Let PostgREST (Supabase client) see the new column without a restart.
         await db.Database.ExecuteSqlRawAsync("notify pgrst, 'reload schema'");
     }
     catch (Exception ex)
     {
-        Console.Error.WriteLine($"WARNING could not add tenants.whatsapp_number (run supabase/schema.sql): {ex.Message}");
+        Console.Error.WriteLine($"WARNING could not add new columns (run supabase/schema.sql): {ex.Message}");
     }
 }
 

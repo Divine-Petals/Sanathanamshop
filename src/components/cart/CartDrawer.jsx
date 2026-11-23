@@ -99,12 +99,16 @@ export default function CartDrawer() {
                     <span className="text-sm font-semibold w-5 text-center text-deep-green">{item.qty}</span>
                     <button
                       onClick={() => updateQty(item.id, item.qty + 1)}
-                      className="w-7 h-7 rounded-full bg-white border border-earth-200 flex items-center justify-center text-earth-700 font-bold text-sm hover:bg-earth-100 transition-colors"
+                      disabled={typeof item.stock === 'number' && item.qty >= item.stock}
+                      className="w-7 h-7 rounded-full bg-white border border-earth-200 flex items-center justify-center text-earth-700 font-bold text-sm hover:bg-earth-100 transition-colors disabled:opacity-40"
                       aria-label="Increase quantity"
                     >
                       +
                     </button>
                   </div>
+                  {typeof item.stock === 'number' && item.qty >= item.stock && (
+                    <p className="text-[10px] text-amber-700 mt-1">Only {item.stock} in stock</p>
+                  )}
                 </div>
 
                 {/* Remove */}

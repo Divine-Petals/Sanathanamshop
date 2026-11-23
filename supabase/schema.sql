@@ -97,6 +97,7 @@ create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   phone text not null unique,
   name text null,
+  date_of_birth date null,
   created_at timestamptz not null default now()
 );
 
@@ -160,3 +161,14 @@ alter table products add column if not exists domain text not null default '';
 -- MRP (maximum retail price). price_in_inr is the offer price customers pay.
 alter table products add column if not exists mrp numeric(10,2) not null default 0;
 update products set mrp = price_in_inr where mrp = 0;
+
+-- Stock on hand. NULL = not tracked (unlimited); orders reduce it and are refused when it runs out.
+alter table products add column if not exists stock int null;
+alter table products drop constraint if exists products_stock_nonnegative;
+alter table products add constraint products_stock_nonnegative check (stock is null or stock >= 0);
+
+-- Sign-up details. For now the login OTP of a registered customer is the DDMM of this date.
+alter table users add column if not exists date_of_birth date null;
+
+-- Payment status of an order: 0 unpaid, 1 paid, 2 refunded. Order status 6 = closed (locked).
+alter table orders add column if not exists payment_status int not null default 0;

@@ -4,6 +4,9 @@ import { useAdminSite } from './AdminSiteContext'
 
 const AdminInventoryContext = createContext(null)
 
+// Blank = stock not tracked (null); otherwise a whole number of units.
+const toStock = (value) => (value === '' || value == null ? null : Math.max(0, Math.floor(Number(value))))
+
 function normalizeCategoryRows(rows) {
   return (rows ?? [])
     .map((row) => {
@@ -57,6 +60,7 @@ export function AdminInventoryProvider({ children }) {
       ingredients: product.ingredients,
       bestseller: product.bestseller,
       available: product.available !== false,
+      stock: toStock(product.stock),
       image_url: product.image_url,
     })
     setProducts((prev) => [...prev, data])
@@ -79,6 +83,7 @@ export function AdminInventoryProvider({ children }) {
       ingredients: product.ingredients,
       bestseller: product.bestseller,
       available: product.available !== false,
+      stock: toStock(product.stock),
       image_url: product.image_url,
     })
     setProducts((prev) => prev.map((p) => (p.id === id ? data : p)))

@@ -7,7 +7,7 @@ using Sanathanam.Api.Domain;
 
 namespace Sanathanam.Api.Controllers;
 
-public record UpdateMeRequest(string? Name);
+public record UpdateMeRequest(string? Name, DateOnly? DateOfBirth = null);
 public record AddressDto(string FullName, string Line1, string City, string Pincode, string? State, bool IsDefault);
 
 [ApiController]
@@ -21,7 +21,7 @@ public class MeController(AppDbContext db) : ControllerBase
         var id = User.GetUserId();
         var user = await db.Users.FindAsync(id);
         if (user is null) return Unauthorized();
-        return Ok(new { id = user.Id, phone = user.Phone, name = user.Name });
+        return Ok(UserDto(user));
     }
 
     [HttpPut]
@@ -30,9 +30,31 @@ public class MeController(AppDbContext db) : ControllerBase
         var user = await db.Users.FindAsync(User.GetUserId());
         if (user is null) return Unauthorized();
         user.Name = body.Name?.Trim();
+        // Accounts from before sign-up can add their date of birth once; it then becomes their OTP.
+        if (body.DateOfBirth is not null)
+        {
+            if (user.DateOfBirth is not null && user.DateOfBirth != body.DateOfBirth)
+                return BadRequest(new { message = "Date of birth is already set." });
+            try
+            {
+                user.DateOfBirth = Services.OtpService.ValidateDateOfBirth(body.DateOfBirth);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
         await db.SaveChangesAsync();
-        return Ok(new { id = user.Id, phone = user.Phone, name = user.Name });
+        return Ok(UserDto(user));
     }
+
+    public static object UserDto(User user) => new
+    {
+        id = user.Id,
+        phone = user.Phone,
+        name = user.Name,
+        date_of_birth = user.DateOfBirth
+    };
 
     [HttpGet("addresses")]
     public async Task<IActionResult> Addresses()

@@ -20,6 +20,7 @@ import AdminLoginPage from './pages/AdminLoginPage'
 import CheckoutPage from './pages/CheckoutPage'
 import AccountPage, { OrderDetailPage } from './pages/AccountPage'
 import AdminStoresPage from './pages/AdminStoresPage'
+import AdminOrdersPage from './pages/AdminOrdersPage'
 
 function CustomerRoute({ children }) {
   const { isAuthenticated, authLoading } = useAuth()
@@ -90,6 +91,16 @@ export default function App() {
                       <AdminRoute>
                         <AdminApp>
                           <AdminPage />
+                        </AdminApp>
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/orders"
+                    element={
+                      <AdminRoute>
+                        <AdminApp>
+                          <AdminOrdersPage />
                         </AdminApp>
                       </AdminRoute>
                     }
